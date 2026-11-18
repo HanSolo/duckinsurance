@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="jakarta.faces.html"
+      xmlns:f="jakarta.faces.core"
+      xmlns:ui="jakarta.faces.facelets">
+<f:metadata>
+    <ui:insert name="metadata"/>
+</f:metadata>
+<h:head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title><ui:insert name="title">DuckInsurance</ui:insert> · DuckInsurance</title>
+    <h:outputStylesheet library="css" name="app.css"/>
+</h:head>
+<h:body>
+    <div class="shell">
+        <aside class="sidebar">
+            <div class="brand"><span class="logo">🦆</span><div><strong>DuckInsurance</strong><small>Jakarta EE 11 reference demo</small></div></div>
+            <nav>
+                <h:link outcome="/app/dashboard" value="Dashboard"/>
+                <h:link outcome="/app/customers" value="Owners"/>
+                <h:link outcome="/app/ducks" value="Ducks"/>
+                <h:link outcome="/app/policies" value="Policies"/>
+                <h:link outcome="/app/claims" value="Claims"/>
+                <h:link outcome="/app/vets" value="Vets"/>
+                <a href="#{facesContext.externalContext.requestContextPath}/api/stats" target="_blank">REST API ↗</a>
+            </nav>
+            <div class="sidebar-foot">
+                <div class="who">
+                    <span class="avatar">#{facesContext.externalContext.remoteUser.substring(0, 1).toUpperCase()}</span>
+                    <div><strong>#{facesContext.externalContext.remoteUser}</strong>
+                        <small>#{facesContext.externalContext.isUserInRole('ADMIN') ? 'ADMIN' : (facesContext.externalContext.isUserInRole('ADJUSTER') ? 'ADJUSTER' : 'CUSTOMER')}</small></div>
+                </div>
+                <h:form><h:commandButton value="Sign out" action="#{loginBean.logout}" styleClass="btn ghost wide"/></h:form>
+                <div class="runtime">
+                    <span>#{runtimeInfo.server}</span>
+                    <span>Java #{runtimeInfo.java}</span>
+                </div>
+            </div>
+        </aside>
+        <main class="content">
+            <header class="page-head">
+                <h1><ui:insert name="heading">DuckInsurance</ui:insert></h1>
+                <div class="specs"><ui:insert name="specs"/></div>
+            </header>
+            <h:messages styleClass="messages" infoClass="msg info" errorClass="msg error" warnClass="msg warn" layout="list" globalOnly="false"/>
+            <ui:insert name="content"/>
+        </main>
+    </div>
+</h:body>
+</html>

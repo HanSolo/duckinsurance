@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<ui:composition xmlns="http://www.w3.org/1999/xhtml"
+                xmlns:h="jakarta.faces.html"
+                xmlns:f="jakarta.faces.core"
+                xmlns:ui="jakarta.faces.facelets"
+                template="/WEB-INF/templates/layout.xhtml">
+
+    <ui:define name="metadata">
+        <f:viewParam name="id" value="#{customerDetailBean.id}"/>
+        <f:viewAction action="#{customerDetailBean.load}"/>
+    </ui:define>
+
+    <ui:define name="title">#{customerDetailBean.customer.fullName}</ui:define>
+    <ui:define name="heading">#{customerDetailBean.customer.fullName}</ui:define>
+    <ui:define name="specs">
+        <span>Faces 4.1 · viewParam</span><span>Data 1.0 · @Find</span>
+    </ui:define>
+
+    <ui:define name="content">
+        <section class="card">
+            <dl class="facts">
+                <div><dt>E-mail</dt><dd>#{customerDetailBean.customer.email}</dd></div>
+                <div><dt>City</dt><dd>#{customerDetailBean.customer.city}</dd></div>
+                <div><dt>Born</dt><dd><h:outputText value="#{customerDetailBean.customer.birthDate}"><f:convertDateTime type="localDate" pattern="dd MMM yyyy"/></h:outputText> (#{customerDetailBean.customer.age})</dd></div>
+            </dl>
+        </section>
+
+        <section class="card">
+            <h2>Ducks</h2>
+            <table class="grid">
+                <tr><th>Name</th><th>Breed</th><th>Age</th></tr>
+                <ui:repeat value="#{customerDetailBean.ducks}" var="d">
+                    <tr><td><strong>#{d.name}</strong></td><td>#{d.breed.label}</td><td class="mono">#{d.ageLabel}</td></tr>
+                </ui:repeat>
+            </table>
+        </section>
+
+        <section class="card">
+            <h2>Policies</h2>
+            <table class="grid">
+                <tr><th>Number</th><th>Duck</th><th>Type</th><th>Coverage</th><th>Premium / year</th><th>Period</th><th>Status</th></tr>
+                <ui:repeat value="#{customerDetailBean.policies}" var="p">
+                    <tr>
+                        <td class="mono">#{p.policyNumber}</td>
+                        <td>#{customerDetailBean.duckName(p.duckId)}</td>
+                        <td>#{p.type.label}</td>
+                        <td class="mono"><h:outputText value="#{p.coverageAmount}"><f:convertNumber pattern="€#,##0"/></h:outputText></td>
+                        <td class="mono"><h:outputText value="#{p.annualPremium}"><f:convertNumber pattern="€#,##0.00"/></h:outputText></td>
+                        <td class="muted"><h:outputText value="#{p.startDate}"><f:convertDateTime type="localDate" pattern="dd MMM yyyy"/></h:outputText> – <h:outputText value="#{p.endDate}"><f:convertDateTime type="localDate" pattern="dd MMM yyyy"/></h:outputText></td>
+                        <td><span class="badge #{p.status}">#{p.status}</span></td>
+                    </tr>
+                </ui:repeat>
+            </table>
+        </section>
+
+        <section class="card">
+            <h2>Claims</h2>
+            <table class="grid">
+                <tr><th>Number</th><th>Description</th><th>Amount</th><th>Risk</th><th>Status</th></tr>
+                <ui:repeat value="#{customerDetailBean.claims}" var="c">
+                    <tr>
+                        <td class="mono">#{c.claimNumber}</td>
+                        <td>#{c.description}</td>
+                        <td class="mono"><h:outputText value="#{c.amount}"><f:convertNumber pattern="€#,##0.00"/></h:outputText></td>
+                        <td class="mono">#{c.fraudScore == null ? '…' : c.fraudScore}</td>
+                        <td><span class="badge #{c.status}">#{c.status}</span></td>
+                    </tr>
+                </ui:repeat>
+            </table>
+        </section>
+        <h:link outcome="/app/customers" value="← Back to owners" styleClass="btn ghost"/>
+    </ui:define>
+</ui:composition>

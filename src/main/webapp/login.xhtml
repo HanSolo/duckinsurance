@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="jakarta.faces.html"
+      xmlns:f="jakarta.faces.core">
+<h:head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Sign in · DuckInsurance</title>
+    <h:outputStylesheet library="css" name="app.css"/>
+</h:head>
+<h:body styleClass="login-page">
+    <div class="login-card">
+        <div class="brand"><span class="logo">🦆</span><div><strong>DuckInsurance</strong><small>Jakarta EE 11 reference demo</small></div></div>
+        <h:form>
+            <h:messages styleClass="messages" infoClass="msg info" errorClass="msg error" layout="list"/>
+            <label for="username">Username</label>
+            <h:inputText id="username" value="#{loginBean.username}" required="true" a:autofocus="autofocus" xmlns:a="jakarta.faces.passthrough"/>
+            <label for="password">Password</label>
+            <h:inputSecret id="password" value="#{loginBean.password}" required="true"/>
+            <h:commandButton value="Sign in" action="#{loginBean.login}" styleClass="btn primary wide"/>
+        </h:form>
+        <div class="hint">
+            <span>Demo accounts</span>
+            <code>admin / admin</code>
+            <code>adjuster / adjuster</code>
+            <code>customer / customer</code>
+        </div>
+    </div>
+</h:body>
+</html>

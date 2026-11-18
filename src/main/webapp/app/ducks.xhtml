@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<ui:composition xmlns="http://www.w3.org/1999/xhtml"
+                xmlns:h="jakarta.faces.html"
+                xmlns:f="jakarta.faces.core"
+                xmlns:ui="jakarta.faces.facelets"
+                xmlns:p="jakarta.faces.passthrough"
+                template="/WEB-INF/templates/layout.xhtml">
+
+    <ui:define name="title">Ducks</ui:define>
+    <ui:define name="heading">Ducks</ui:define>
+    <ui:define name="specs">
+        <span>Faces 4.1</span><span>Persistence 3.2 · enum</span><span>Validation 3.1</span>
+    </ui:define>
+
+    <ui:define name="content">
+        <section class="card">
+            <table class="grid">
+                <tr><th>Name</th><th>Breed</th><th>Age</th><th>Owner</th></tr>
+                <ui:repeat value="#{ducksBean.ducks}" var="d">
+                    <tr>
+                        <td><strong>#{d.name}</strong></td>
+                        <td>#{d.breed.label}</td>
+                        <td class="mono">#{d.ageLabel}</td>
+                        <td>#{ducksBean.ownerName(d.ownerId)}</td>
+                    </tr>
+                </ui:repeat>
+            </table>
+        </section>
+
+        <h:panelGroup layout="block" styleClass="card" rendered="#{facesContext.externalContext.isUserInRole('ADMIN')}">
+            <h2>Register a duck <small>(admin only)</small></h2>
+            <h:form styleClass="form-grid">
+                <label>Owner
+                    <h:selectOneMenu value="#{ducksBean.form.ownerId}" required="true">
+                        <f:selectItem itemLabel="Choose…" noSelectionOption="true"/>
+                        <f:selectItems value="#{ducksBean.owners}" var="o" itemValue="#{o.id}" itemLabel="#{o.fullName}"/>
+                    </h:selectOneMenu>
+                </label>
+                <label>Name<h:inputText value="#{ducksBean.form.name}"/></label>
+                <label>Breed
+                    <h:selectOneMenu value="#{ducksBean.form.breed}">
+                        <f:selectItems value="#{ducksBean.breeds}" var="b" itemValue="#{b}" itemLabel="#{b.label}"/>
+                    </h:selectOneMenu>
+                </label>
+                <label>Birth date
+                    <h:inputText value="#{ducksBean.form.birthDate}" p:type="date"><f:convertDateTime type="localDate" pattern="yyyy-MM-dd"/></h:inputText>
+                </label>
+                <div class="actions"><h:commandButton value="Register duck" action="#{ducksBean.create}" styleClass="btn primary"/></div>
+            </h:form>
+        </h:panelGroup>
+    </ui:define>
+</ui:composition>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<ui:composition xmlns="http://www.w3.org/1999/xhtml"
+                xmlns:h="jakarta.faces.html"
+                xmlns:f="jakarta.faces.core"
+                xmlns:ui="jakarta.faces.facelets"
+                template="/WEB-INF/templates/layout.xhtml">
+
+    <ui:define name="title">Dashboard</ui:define>
+    <ui:define name="heading">Dashboard</ui:define>
+    <ui:define name="specs">
+        <span>Faces 4.1</span><span>CDI 4.1</span><span>Data 1.0</span><span>Concurrency 3.1</span>
+    </ui:define>
+
+    <ui:define name="content">
+        <section class="cards">
+            <div class="card stat"><small>Owners</small><strong>#{dashboardBean.owners}</strong></div>
+            <div class="card stat"><small>Ducks</small><strong>#{dashboardBean.ducks}</strong></div>
+            <div class="card stat"><small>Active policies</small><strong>#{dashboardBean.activePolicies}</strong></div>
+            <div class="card stat"><small>Annual premium volume</small><strong><h:outputText value="#{dashboardBean.annualPremium}"><f:convertNumber pattern="€#,##0"/></h:outputText></strong></div>
+            <div class="card stat accent"><small>Open claims</small><strong>#{dashboardBean.openClaims}</strong></div>
+        </section>
+
+        <section class="two-col">
+            <div class="card">
+                <h2>Claims by status</h2>
+                <ul class="bars">
+                    <ui:repeat value="#{dashboardBean.claimCounts}" var="entry">
+                        <li><span class="badge #{entry.key}">#{entry.key}</span><strong>#{entry.value}</strong></li>
+                    </ui:repeat>
+                </ul>
+            </div>
+            <div class="card">
+                <h2>Live activity <small>(CDI interceptor + async events)</small></h2>
+                <h:form>
+                    <h:commandButton value="Refresh" styleClass="btn ghost small">
+                        <f:ajax render="@form :log"/>
+                    </h:commandButton>
+                </h:form>
+                <h:panelGroup id="log" layout="block">
+                    <table class="grid compact">
+                        <ui:repeat value="#{dashboardBean.audit}" var="entry">
+                            <tr><td class="mono muted">#{entry.time}</td><td>#{entry.actor}</td><td>#{entry.message}</td></tr>
+                        </ui:repeat>
+                    </table>
+                </h:panelGroup>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>Where is each Jakarta EE 11 spec used?</h2>
+            <table class="grid">
+                <tr><th>Specification</th><th>In this demo</th></tr>
+                <tr><td><span class="chip">Persistence 3.2</span></td><td class="mono">domain/*  — entities, java.time support, drop-and-create schema</td></tr>
+                <tr><td><span class="chip">Data 1.0</span></td><td class="mono">repo/*  — @Repository, @Find, @Query (JDQL), countBy…</td></tr>
+                <tr><td><span class="chip">REST 4.0</span></td><td class="mono">rest/*  — JSON-B records, @RolesAllowed, exception mapper</td></tr>
+                <tr><td><span class="chip">CDI 4.1</span></td><td class="mono">event/*, audit/*  — Startup event, sync/async events, AFTER_SUCCESS observer, interceptor</td></tr>
+                <tr><td><span class="chip">Concurrency 3.1</span></td><td class="mono">config/*  — virtual-thread executor, @Asynchronous(runAt = @Schedule)</td></tr>
+                <tr><td><span class="chip">Transactions 2.0</span></td><td class="mono">service/*  — @Transactional business services</td></tr>
+                <tr><td><span class="chip">Security 4.0</span></td><td class="mono">security/*  — custom HttpAuthenticationMechanism + IdentityStore, session and Basic auth</td></tr>
+                <tr><td><span class="chip">Validation 3.1</span></td><td class="mono">domain/*, rest/Requests  — constraints on entities and records, also checked by Faces</td></tr>
+                <tr><td><span class="chip">Faces 4.1</span></td><td class="mono">webapp/*  — Facelets template, view-scoped beans, f:ajax</td></tr>
+            </table>
+        </section>
+    </ui:define>
+</ui:composition>

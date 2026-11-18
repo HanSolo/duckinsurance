@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<ui:composition xmlns="http://www.w3.org/1999/xhtml"
+                xmlns:h="jakarta.faces.html"
+                xmlns:f="jakarta.faces.core"
+                xmlns:ui="jakarta.faces.facelets"
+                xmlns:p="jakarta.faces.passthrough"
+                template="/WEB-INF/templates/layout.xhtml">
+
+    <ui:define name="title">Claims</ui:define>
+    <ui:define name="heading">Claims</ui:define>
+    <ui:define name="specs">
+        <span>CDI events</span><span>Concurrency 3.1 · virtual threads</span><span>Security 4.0 · roles</span>
+    </ui:define>
+
+    <ui:define name="content">
+        <h:form id="list">
+            <section class="card">
+                <div class="toolbar">
+                    <label>Status
+                        <h:selectOneMenu value="#{claimsBean.filter}">
+                            <f:selectItem itemLabel="All" noSelectionOption="true"/>
+                            <f:selectItems value="#{claimsBean.statuses}" var="s" itemValue="#{s}" itemLabel="#{s}"/>
+                            <f:ajax listener="#{claimsBean.load}" render="@form"/>
+                        </h:selectOneMenu>
+                    </label>
+                    <h:panelGroup rendered="#{claimsBean.adjuster}">
+                        <label>Decision note<h:inputText value="#{claimsBean.note}" p:placeholder="Optional note for approve / reject"/></label>
+                    </h:panelGroup>
+                    <h:commandButton value="Refresh" styleClass="btn ghost">
+                        <f:ajax listener="#{claimsBean.load}" render="@form"/>
+                    </h:commandButton>
+                </div>
+                <table class="grid">
+                    <tr><th>Number</th><th>Policy</th><th>Duck (owner)</th><th>Vet</th><th>Description</th><th>Amount</th><th>Fraud risk</th><th>Status</th><th></th></tr>
+                    <ui:repeat value="#{claimsBean.claims}" var="c">
+                        <tr>
+                            <td class="mono">#{c.claimNumber}</td>
+                            <td class="mono">#{claimsBean.policyNumber(c.policyId)}</td>
+                            <td>#{claimsBean.duck(c.policyId)}</td>
+                            <td>#{claimsBean.vetName(c.vetId)}</td>
+                            <td>#{c.description}<h:panelGroup rendered="#{c.decisionNote != null}"><div class="muted note">#{c.decidedBy}: #{c.decisionNote}</div></h:panelGroup></td>
+                            <td class="mono"><h:outputText value="#{c.amount}"><f:convertNumber pattern="€#,##0.00"/></h:outputText></td>
+                            <td>
+                                <h:panelGroup rendered="#{c.fraudScore != null}"><span class="meter risk-#{c.fraudScore ge 60 ? 'high' : (c.fraudScore ge 30 ? 'mid' : 'low')}"><i style="width: #{c.fraudScore}%"></i></span> <span class="mono">#{c.fraudScore}</span></h:panelGroup>
+                                <h:panelGroup rendered="#{c.fraudScore == null}"><span class="muted">checking…</span></h:panelGroup>
+                            </td>
+                            <td><span class="badge #{c.status}">#{c.status}</span></td>
+                            <td class="right nowrap">
+                                <h:panelGroup rendered="#{claimsBean.adjuster and c.status.open}">
+                                    <h:commandButton value="Approve" action="#{claimsBean.approve(c.id)}" styleClass="btn small primary"/>
+                                    <h:commandButton value="Reject" action="#{claimsBean.reject(c.id)}" styleClass="btn small ghost"/>
+                                </h:panelGroup>
+                            </td>
+                        </tr>
+                    </ui:repeat>
+                </table>
+            </section>
+        </h:form>
+
+        <section class="card">
+            <h2>Submit a claim</h2>
+            <h:form styleClass="form-grid">
+                <label>Policy
+                    <h:selectOneMenu value="#{claimsBean.policyId}" required="true">
+                        <f:selectItem itemLabel="Choose…" noSelectionOption="true"/>
+                        <f:selectItems value="#{claimsBean.activePolicies}" var="pol" itemValue="#{pol.id}" itemLabel="#{claimsBean.label(pol)}"/>
+                    </h:selectOneMenu>
+                </label>
+                <label>Vet
+                    <h:selectOneMenu value="#{claimsBean.vetId}">
+                        <f:selectItem itemLabel="No vet" noSelectionOption="true"/>
+                        <f:selectItems value="#{claimsBean.vets}" var="v" itemValue="#{v.id}" itemLabel="#{v.name} · #{v.city}"/>
+                    </h:selectOneMenu>
+                </label>
+                <label>Amount (€)<h:inputText value="#{claimsBean.amount}" required="true"/></label>
+                <label>Incident date
+                    <h:inputText value="#{claimsBean.incidentDate}" required="true" p:type="date"><f:convertDateTime type="localDate" pattern="yyyy-MM-dd"/></h:inputText>
+                </label>
+                <label class="wide">Description<h:inputText value="#{claimsBean.description}" required="true"/></label>
+                <div class="actions"><h:commandButton value="Submit claim" action="#{claimsBean.submit}" styleClass="btn primary"/></div>
+            </h:form>
+        </section>
+    </ui:define>
+</ui:composition>

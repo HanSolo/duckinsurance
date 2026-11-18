@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<ui:composition xmlns="http://www.w3.org/1999/xhtml"
+                xmlns:h="jakarta.faces.html"
+                xmlns:f="jakarta.faces.core"
+                xmlns:ui="jakarta.faces.facelets"
+                xmlns:p="jakarta.faces.passthrough"
+                template="/WEB-INF/templates/layout.xhtml">
+
+    <ui:define name="title">Policies</ui:define>
+    <ui:define name="heading">Policies</ui:define>
+    <ui:define name="specs">
+        <span>Faces 4.1</span><span>Transactions 2.0</span><span>Data 1.0</span>
+    </ui:define>
+
+    <ui:define name="content">
+        <h:form>
+            <section class="card">
+                <table class="grid">
+                    <tr><th>Number</th><th>Duck</th><th>Owner</th><th>Type</th><th>Coverage</th><th>Premium / year</th><th>Ends</th><th>Status</th><th></th></tr>
+                    <ui:repeat value="#{policiesBean.policies}" var="pol">
+                        <tr>
+                            <td class="mono">#{pol.policyNumber}</td>
+                            <td><strong>#{policiesBean.duckName(pol.duckId)}</strong></td>
+                            <td>#{policiesBean.ownerName(pol.customerId)}</td>
+                            <td>#{pol.type.label}</td>
+                            <td class="mono"><h:outputText value="#{pol.coverageAmount}"><f:convertNumber pattern="€#,##0"/></h:outputText></td>
+                            <td class="mono"><h:outputText value="#{pol.annualPremium}"><f:convertNumber pattern="€#,##0.00"/></h:outputText></td>
+                            <td class="muted"><h:outputText value="#{pol.endDate}"><f:convertDateTime type="localDate" pattern="dd MMM yyyy"/></h:outputText></td>
+                            <td><span class="badge #{pol.status}">#{pol.status}</span></td>
+                            <td class="right">
+                                <h:commandButton value="Cancel" action="#{policiesBean.cancel(pol.id)}" styleClass="btn ghost small"
+                                                 rendered="#{pol.status == 'ACTIVE' and facesContext.externalContext.isUserInRole('ADMIN')}"/>
+                            </td>
+                        </tr>
+                    </ui:repeat>
+                </table>
+            </section>
+        </h:form>
+
+        <h:panelGroup layout="block" styleClass="card" rendered="#{facesContext.externalContext.isUserInRole('ADMIN')}">
+            <h2>Quote and issue a policy <small>(admin only)</small></h2>
+            <h:form styleClass="form-grid">
+                <label>Duck
+                    <h:selectOneMenu value="#{policiesBean.duckId}" required="true">
+                        <f:selectItem itemLabel="Choose…" noSelectionOption="true"/>
+                        <f:selectItems value="#{policiesBean.ducks}" var="d" itemValue="#{d.id}" itemLabel="#{policiesBean.duckLabel(d)}"/>
+                    </h:selectOneMenu>
+                </label>
+                <label>Type
+                    <h:selectOneMenu value="#{policiesBean.type}">
+                        <f:selectItems value="#{policiesBean.types}" var="t" itemValue="#{t}" itemLabel="#{t.label}"/>
+                    </h:selectOneMenu>
+                </label>
+                <label>Coverage (€)<h:inputText value="#{policiesBean.coverage}" required="true"/></label>
+                <label>Start date
+                    <h:inputText value="#{policiesBean.startDate}" p:type="date"><f:convertDateTime type="localDate" pattern="yyyy-MM-dd"/></h:inputText>
+                </label>
+                <div class="actions">
+                    <h:commandButton value="Calculate premium" action="#{policiesBean.preview}" styleClass="btn"/>
+                    <h:commandButton value="Issue policy" action="#{policiesBean.issue}" styleClass="btn primary"/>
+                    <h:panelGroup rendered="#{policiesBean.quote != null}" styleClass="quote">
+                        Premium: <strong><h:outputText value="#{policiesBean.quote}"><f:convertNumber pattern="€#,##0.00"/></h:outputText></strong> / year
+                    </h:panelGroup>
+                </div>
+            </h:form>
+        </h:panelGroup>
+    </ui:define>
+</ui:composition>

@@ -1,0 +1,2 @@
+# Demo only: hide a harmless Jersey/CDI message that is logged at SEVERE during startup
+set-log-levels org.glassfish.jersey.ext.cdi1x.internal.CdiComponentProvider=OFF

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence xmlns="https://jakarta.ee/xml/ns/persistence" version="3.2">
+    <persistence-unit name="insurancePU" transaction-type="JTA">
+        <!-- Every Jakarta EE server provides a default datasource (H2 on Payara) -> zero setup -->
+        <jta-data-source>java:comp/DefaultDataSource</jta-data-source>
+        <exclude-unlisted-classes>false</exclude-unlisted-classes>
+        <properties>
+            <property name="jakarta.persistence.schema-generation.database.action" value="drop-and-create"/>
+            <!-- On a fresh in-memory database the initial DROP SEQUENCE statements fail; that is expected, so keep the log quiet -->
+            <property name="eclipselink.logging.level" value="SEVERE"/>
+        </properties>
+    </persistence-unit>
+</persistence>

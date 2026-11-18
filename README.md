@@ -1,8 +1,8 @@
 # DuckInsurance
 
 A small, PetClinic-style reference application for **Jakarta EE 11**, built around an insurance domain
-(customers, policies, claims). It targets **Payara 7** by default; the code only uses standard APIs
-(plus one `payara-web.xml` for context root and role mapping), so other EE 11 runtimes should work too.
+(duck owners, ducks, vets, policies, claims), matching the Duck-Clinic scheme. It targets **Payara 7** by default; the code only uses standard APIs
+(plus one `glassfish-web.xml` for context root and role mapping), so other EE 11 runtimes should work too.
 
 ## Run it
 
@@ -41,6 +41,8 @@ Try this flow: sign in as `customer`, submit a claim, watch the **fraud risk** g
 (a virtual thread started after the transaction committed), then sign in as `adjuster` and approve it.
 The dashboard's activity log shows the interceptor and the asynchronous notification.
 
+A 15-minute walkthrough with a story is in [DEMO.md](DEMO.md).
+
 ## REST API
 
 All endpoints under `/api`, HTTP Basic or session cookie:
@@ -48,14 +50,14 @@ All endpoints under `/api`, HTTP Basic or session cookie:
 ```bash
 curl -u admin:admin http://localhost:8080/api/customers
 curl -u admin:admin http://localhost:8080/api/policies/quote -H 'Content-Type: application/json' \
-     -d '{"customerId":1,"type":"AUTO","coverageAmount":40000}'
+     -d '{"duckId":1,"type":"VET_CARE","coverageAmount":5000}'
 curl -u customer:customer http://localhost:8080/api/claims -H 'Content-Type: application/json' \
-     -d '{"policyId":1,"description":"Cracked windscreen on the highway","amount":600,"incidentDate":"2026-10-01"}'
+     -d '{"policyId":1,"vetId":1,"description":"Sir Quacksalot swallowed a bread bag clip","amount":600,"incidentDate":"2026-10-01"}'
 curl -u adjuster:adjuster http://localhost:8080/api/claims/3/decision -H 'Content-Type: application/json' \
      -d '{"approve":true,"note":"ok"}'
 ```
 
-Resources: `customers`, `customers/{id}/policies`, `policies`, `policies/quote`, `policies/{id}/cancel`,
+Resources: `customers` (the owners), `customers/{id}/ducks`, `customers/{id}/policies`, `ducks`, `vets`, `policies`, `policies/quote`, `policies/{id}/cancel`,
 `claims`, `claims/{id}/decision`, `stats`.
 
 ## Design choices (and known simplifications)
@@ -69,5 +71,5 @@ Resources: `customers`, `customers/{id}/policies`, `policies`, `policies/quote`,
 ## Next step: MCP
 
 The REST API is the natural integration point. An MCP server can map each operation to a tool
-(`search_customers`, `quote_policy`, `submit_claim`, `decide_claim`, …) and authenticate with HTTP Basic.
+(`search_owners`, `list_ducks`, `quote_policy`, `submit_claim`, `decide_claim`, …) and authenticate with HTTP Basic.
 Adding MicroProfile OpenAPI annotations (`@Operation`, `@Parameter`) would give the tools good descriptions for free.

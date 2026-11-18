@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<ui:composition xmlns="http://www.w3.org/1999/xhtml"
+                xmlns:h="jakarta.faces.html"
+                xmlns:f="jakarta.faces.core"
+                xmlns:ui="jakarta.faces.facelets"
+                xmlns:p="jakarta.faces.passthrough"
+                template="/WEB-INF/templates/layout.xhtml">
+
+    <ui:define name="title">Owners</ui:define>
+    <ui:define name="heading">Duck owners</ui:define>
+    <ui:define name="specs">
+        <span>Faces 4.1</span><span>Data 1.0 · @Query</span><span>Validation 3.1</span>
+    </ui:define>
+
+    <ui:define name="content">
+        <section class="card">
+            <h:form styleClass="inline-form">
+                <h:inputText value="#{customersBean.query}" p:placeholder="Search by name or e-mail…"/>
+                <h:commandButton value="Search" action="#{customersBean.search}" styleClass="btn"/>
+            </h:form>
+            <table class="grid">
+                <tr><th>Name</th><th>E-mail</th><th>City</th><th>Age</th><th></th></tr>
+                <ui:repeat value="#{customersBean.customers}" var="c">
+                    <tr>
+                        <td><strong>#{c.fullName}</strong></td>
+                        <td class="muted">#{c.email}</td>
+                        <td>#{c.city}</td>
+                        <td class="mono">#{c.age}</td>
+                        <td class="right"><h:link outcome="/app/customer" value="Open →" styleClass="btn ghost small"><f:param name="id" value="#{c.id}"/></h:link></td>
+                    </tr>
+                </ui:repeat>
+            </table>
+        </section>
+
+        <h:panelGroup layout="block" styleClass="card" rendered="#{facesContext.externalContext.isUserInRole('ADMIN')}">
+            <h2>New owner <small>(admin only)</small></h2>
+            <h:form styleClass="form-grid">
+                <label>First name<h:inputText value="#{customersBean.form.firstName}"/></label>
+                <label>Last name<h:inputText value="#{customersBean.form.lastName}"/></label>
+                <label>E-mail<h:inputText value="#{customersBean.form.email}"/></label>
+                <label>Birth date
+                    <h:inputText value="#{customersBean.form.birthDate}" p:type="date"><f:convertDateTime type="localDate" pattern="yyyy-MM-dd"/></h:inputText>
+                </label>
+                <label>City<h:inputText value="#{customersBean.form.city}"/></label>
+                <div class="actions"><h:commandButton value="Create owner" action="#{customersBean.create}" styleClass="btn primary"/></div>
+            </h:form>
+        </h:panelGroup>
+    </ui:define>
+</ui:composition>

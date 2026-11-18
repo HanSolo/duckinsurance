@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<ui:composition xmlns="http://www.w3.org/1999/xhtml"
+                xmlns:h="jakarta.faces.html"
+                xmlns:f="jakarta.faces.core"
+                xmlns:ui="jakarta.faces.facelets"
+                template="/WEB-INF/templates/layout.xhtml">
+
+    <ui:define name="title">Vets</ui:define>
+    <ui:define name="heading">Vets</ui:define>
+    <ui:define name="specs">
+        <span>Faces 4.1</span><span>Data 1.0</span>
+    </ui:define>
+
+    <ui:define name="content">
+        <section class="card">
+            <table class="grid">
+                <tr><th>Name</th><th>Specialty</th><th>City</th></tr>
+                <ui:repeat value="#{vetsBean.vets}" var="v">
+                    <tr><td><strong>#{v.name}</strong></td><td>#{v.specialty}</td><td>#{v.city}</td></tr>
+                </ui:repeat>
+            </table>
+        </section>
+    </ui:define>
+</ui:composition>
