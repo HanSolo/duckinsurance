@@ -29,6 +29,13 @@
             <version>${jakartaee.version}</version>
             <scope>provided</scope>
         </dependency>
+        <!-- Draft API (milestone 1); the agent runtime is part of Payara Community 7.2026.8 and later -->
+        <dependency>
+            <groupId>jakarta.agentic-ai</groupId>
+            <artifactId>jakarta.agentic-ai-api</artifactId>
+            <version>1.0.0-M1</version>
+            <scope>provided</scope>
+        </dependency>
         <!-- Annotations only: Payara serves the generated document at /openapi -->
         <dependency>
             <groupId>org.eclipse.microprofile.openapi</groupId>

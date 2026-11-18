@@ -108,6 +108,18 @@ public class ClaimService {
         publish(id, ClaimStatus.SUBMITTED, ClaimStatus.UNDER_REVIEW);
     }
 
+    /** The fraud agent's result: score and reason on the claim, then to review. */
+    @Audited
+    public void applyVerdict(long id, int score, String reason) {
+        Claim claim = get(id);
+        if (claim.getStatus() != ClaimStatus.SUBMITTED) return;
+        claim.setFraudScore(Math.max(0, Math.min(100, score)));
+        claim.setFraudReason(reason.length() > 1000 ? reason.substring(0, 1000) : reason);
+        claim.setStatus(ClaimStatus.UNDER_REVIEW);
+        claims.save(claim);
+        publish(id, ClaimStatus.SUBMITTED, ClaimStatus.UNDER_REVIEW);
+    }
+
     private void publish(Long id, ClaimStatus from, ClaimStatus to) {
         String actor = securityContext.getCallerPrincipal() == null ? "system" : securityContext.getCallerPrincipal().getName();
         ClaimEvent event = new ClaimEvent(id, from, to, actor);

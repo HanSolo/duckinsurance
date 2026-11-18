@@ -13,6 +13,14 @@
     </ui:define>
 
     <ui:define name="content">
+        <h:form id="agent">
+            <h:panelGroup id="agentStatus" layout="block" styleClass="chat-status">
+                <span class="dot #{fraudAgentBean.state}"></span><span class="muted"><strong>Fraud agent</strong> (Jakarta Agentic AI): #{fraudAgentBean.text}</span>
+                <h:commandButton value="Check again" styleClass="btn ghost small">
+                    <f:ajax listener="#{fraudAgentBean.check}" execute="@this" render="agentStatus"/>
+                </h:commandButton>
+            </h:panelGroup>
+        </h:form>
         <h:form id="list">
             <section class="card">
                 <div class="toolbar">
@@ -41,7 +49,7 @@
                             <td>#{c.description}<h:panelGroup rendered="#{c.decisionNote != null}"><div class="muted note">#{c.decidedBy}: #{c.decisionNote}</div></h:panelGroup></td>
                             <td class="mono"><h:outputText value="#{c.amount}"><f:convertNumber pattern="€#,##0.00"/></h:outputText></td>
                             <td>
-                                <h:panelGroup rendered="#{c.fraudScore != null}"><span class="meter risk-#{c.fraudScore ge 60 ? 'high' : (c.fraudScore ge 30 ? 'mid' : 'low')}"><i style="width: #{c.fraudScore}%"></i></span> <span class="mono">#{c.fraudScore}</span></h:panelGroup>
+                                <h:panelGroup rendered="#{c.fraudScore != null}"><span class="meter risk-#{c.fraudScore ge 60 ? 'high' : (c.fraudScore ge 30 ? 'mid' : 'low')}"><i style="width: #{c.fraudScore}%"></i></span> <span class="mono">#{c.fraudScore}</span><h:panelGroup rendered="#{c.fraudReason != null}"><div class="muted note">#{c.fraudReason}</div></h:panelGroup></h:panelGroup>
                                 <h:panelGroup rendered="#{c.fraudScore == null}"><span class="muted">checking…</span></h:panelGroup>
                             </td>
                             <td><span class="badge #{c.status}">#{c.status}</span></td>

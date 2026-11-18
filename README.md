@@ -104,3 +104,17 @@ MCP_USER=adjuster node scripts/duckchat.mjs "Approve the open claim of Don Quixo
 
 `scripts/duckchat.mjs` is a small bridge: it reads the tool list over MCP, hands it to Ollama's `/api/chat`, runs the tool calls the model asks for and feeds the results back.
 If Ollama runs on the host instead of in Docker, nothing changes (default `http://localhost:11434`).
+
+## Fraud agent (Jakarta Agentic AI, draft)
+
+Vet-care claims are checked against the **DuckClinic** by an agent written to the draft [Jakarta Agentic AI 1.0 (milestone 1)](https://jakarta.ee/specifications/agentic-ai/1.0/) model: `agent/ClaimFraudAgent` is a CDI bean annotated `@Agent`.
+A CDI event (`ClaimCheckRequest`, fired by `event/FraudCheck` after a claim was submitted) starts the workflow: `@Trigger` -> `@Action` (reads the duck's visits from the clinic's MCP server through `agent/ClinicClient`, the MCP client library)
+-> `@Decision` (the language model, injected as `LargeLanguageModel`, compares claim and visits and answers with a score and a reason) -> `@Outcome` (stores both on the claim and moves it to review).
+`@HandleException` gives the claim the old rule-based check when the clinic or the model fails. Other claim types (life, liability, coop) always get the rule-based check.
+
+- The **Claims** page has an indicator like the assistant's: green when the DuckClinic MCP endpoint is reachable and offers `find_owners` and `list_visits`. The reason of the agent is shown under the fraud score.
+- Needs **Payara 7.2026.8 or newer** (the image uses 7.2026.10), which ships the first preview of the API. The API may still change.
+- Settings: `DUCKCLINIC_MCP_URL` (default `http://host.docker.internal:8080/duck-clinic/api/mcp`), `DUCK_FRAUD_AGENT=off` to switch the agent off.
+- Both applications default to host port 8080. Start DuckInsurance with `DUCKINSURANCE_PORT=8081 docker compose up --build`, or start the clinic on another port and set `DUCKCLINIC_MCP_URL`.
+- Demo data: copy `duck-clinic-patch/DataInitializer.java` into the clinic (see `duck-clinic-patch/README.md`), so the insured ducks exist there.
+- **Which model answers:** the agent injects the standard `LargeLanguageModel` of the runtime. How Payara 7.2026.10 is told to use the local Ollama is not documented in the sources I could read; configure it as the Payara documentation says.

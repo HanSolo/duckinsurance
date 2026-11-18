@@ -1,5 +1,6 @@
 package eu.hansolo.duckinsurance.domain;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -30,6 +31,9 @@ public class Claim {
     private ClaimStatus   status = ClaimStatus.SUBMITTED;
     /** 0-100, filled in asynchronously by the fraud check. */
     private Integer       fraudScore;
+    /** Why the fraud check gave this score; written by the fraud agent. */
+    @Column(length = 1000)
+    private String        fraudReason;
     private String        decisionNote;
     private String        decidedBy;
 
@@ -56,6 +60,8 @@ public class Claim {
     public void setStatus(ClaimStatus status) { this.status = status; }
     public Integer getFraudScore() { return fraudScore; }
     public void setFraudScore(Integer fraudScore) { this.fraudScore = fraudScore; }
+    public String getFraudReason() { return fraudReason; }
+    public void setFraudReason(String fraudReason) { this.fraudReason = fraudReason; }
     public String getDecisionNote() { return decisionNote; }
     public void setDecisionNote(String decisionNote) { this.decisionNote = decisionNote; }
     public String getDecidedBy() { return decidedBy; }
