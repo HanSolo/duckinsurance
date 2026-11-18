@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<ui:composition xmlns="http://www.w3.org/1999/xhtml"
+                xmlns:h="jakarta.faces.html"
+                xmlns:f="jakarta.faces.core"
+                xmlns:ui="jakarta.faces.facelets"
+                xmlns:p="jakarta.faces.passthrough"
+                template="/WEB-INF/templates/layout.xhtml">
+
+    <ui:define name="title">Assistant</ui:define>
+    <ui:define name="heading">Assistant</ui:define>
+    <ui:define name="specs">
+        <span>MCP client</span><span>MCP server</span><span>#{chatBean.model}</span>
+    </ui:define>
+
+    <ui:define name="content">
+        <section class="card">
+            <script>
+                window.duckPoll = function () { setTimeout(function () { var b = document.getElementById('chat:pollBtn'); if (b) b.click(); }, 600); };
+            </script>
+            <h:form id="chat">
+                <h:panelGroup id="status" layout="block" styleClass="chat-status">
+                    <span class="dot #{chatBean.modelState}"></span><span class="muted">#{chatBean.modelText}</span><br/>
+                    <span class="dot #{chatBean.mcpState}"></span><span class="muted">#{chatBean.mcpText}</span>
+                    <h:commandButton value="Check again" styleClass="btn ghost small" disabled="#{chatBean.running}">
+                        <f:ajax listener="#{chatBean.check}" execute="@this" render="status"/>
+                    </h:commandButton>
+                </h:panelGroup>
+
+                <h:panelGroup id="log" layout="block" styleClass="chat-log">
+                    <h:panelGroup rendered="#{empty chatBean.lines and not chatBean.running}"><p class="muted">Ask about owners, ducks, policies or claims. Try: <em>Which ducks does Anna Keller have?</em> or <em>What would a Pond liability policy for 50000 euro cost for Ducky McDuckface?</em></p></h:panelGroup>
+                    <ui:repeat value="#{chatBean.lines}" var="l">
+                        <div class="bubble #{l.role}">
+                            <div class="who-line">#{l.role == 'user' ? 'You' : (l.role == 'assistant' ? 'Assistant' : 'Notice')}</div>
+                            <div class="text">#{l.text}</div>
+                            <h:panelGroup rendered="#{not empty l.tools}">
+                                <details class="tool-calls"><summary>#{l.tools.size()} tool call(s)</summary>
+                                    <ui:repeat value="#{l.tools}" var="t"><div class="mono muted">#{t}</div></ui:repeat>
+                                </details>
+                            </h:panelGroup>
+                        </div>
+                    </ui:repeat>
+
+                    <h:panelGroup rendered="#{chatBean.running}">
+                        <div class="bubble assistant live">
+                            <div class="who-line">Assistant</div>
+                            <div class="text">#{empty chatBean.live ? 'Thinking…' : chatBean.live}</div>
+                            <ui:repeat value="#{chatBean.liveTools}" var="t"><div class="mono muted tool-line">#{t}</div></ui:repeat>
+                        </div>
+                        <h:panelGroup rendered="#{chatBean.pendingMessage != null}" layout="block" styleClass="confirm-card">
+                            <div class="who-line">Please confirm</div>
+                            <div>#{chatBean.pendingMessage}</div>
+                            <div class="confirm-actions">
+                                <h:commandButton value="Yes, do it" styleClass="btn primary small"><f:ajax listener="#{chatBean.confirm}" execute="@this" render="log"/></h:commandButton>
+                                <h:commandButton value="No" styleClass="btn ghost small"><f:ajax listener="#{chatBean.decline}" execute="@this" render="log"/></h:commandButton>
+                            </div>
+                        </h:panelGroup>
+                        <script>window.duckPoll();</script>
+                    </h:panelGroup>
+                </h:panelGroup>
+                <h:commandButton id="pollBtn" value="poll" style="display:none"><f:ajax listener="#{chatBean.poll}" execute="@this" render="log input-row"/></h:commandButton>
+
+                <h:panelGroup id="input-row" layout="block" styleClass="chat-input-row">
+                    <h:inputText id="question" value="#{chatBean.input}" styleClass="chat-input" disabled="#{chatBean.running}" p:placeholder="Ask the assistant…" p:autocomplete="off" p:autofocus="autofocus"/>
+                    <h:commandButton value="Send" styleClass="btn primary" disabled="#{chatBean.running}"><f:ajax listener="#{chatBean.send}" execute="@form" render="log input-row"/></h:commandButton>
+                    <h:commandButton value="Stop" styleClass="btn ghost" rendered="#{chatBean.running}"><f:ajax listener="#{chatBean.stop}" execute="@this" render="log input-row"/></h:commandButton>
+                    <h:commandButton value="Clear" styleClass="btn ghost" immediate="true"><f:ajax listener="#{chatBean.clear}" execute="@this" render="log input-row"/></h:commandButton>
+                </h:panelGroup>
+            </h:form>
+        </section>
+    </ui:define>
+</ui:composition>

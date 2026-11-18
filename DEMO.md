@@ -3,8 +3,13 @@
 **Story:** It is a stormy Tuesday at DuckInsurance, a small insurer for ducks. You follow three people
 (an admin, a duck owner and a claims adjuster) and show Jakarta EE 11 at work underneath each step.
 
-Start the app (`docker compose up --build`), open <http://localhost:8080>. Demo accounts: `admin/admin`,
-`customer/customer`, `adjuster/adjuster`. Data is re-created on every restart, so you can always reset.
+## Before you start (5 minutes, do this before the audience arrives)
+
+1. **Start the app:** `docker compose up --build` in the project folder. The first build takes a few minutes. It is ready when the log shows the application as deployed. Open <http://localhost:8080>.
+2. **Sign in:** `admin/admin`, `customer/customer`, `adjuster/adjuster`. Use two browser profiles (or a private window) so you can switch between roles quickly.
+3. **Only for step 8 (Assistant):** Ollama must run on your machine with the model pulled (`ollama pull qwen3.8:27b`, version 0.14 or newer). On Linux start it with `OLLAMA_HOST=0.0.0.0 ollama serve`, so the container can reach it; Docker Desktop needs nothing.
+4. **Check:** open **Assistant**. Both dots at the top should be green (model reachable, MCP endpoint reachable). Ask one question beforehand: the first answer loads the model and takes a while.
+5. **Reset:** data is re-created on every restart (`docker compose restart`), so you can always go back to the start.
 
 The model follows the Duck-Clinic: **owners** have **ducks**, **vets** treat them. A **policy** insures one duck
 (types: Vet care, Duck life, Pond liability, Coop & pond), a **claim** belongs to a policy and may name the treating vet.
@@ -121,7 +126,26 @@ so an LLM can list ducks, quote a policy or file a claim, with the same roles an
 
 ---
 
+## 8. Optional: the same app, driven by a local LLM (3 min)
+
+Needs Ollama running on the host with the model pulled (see the README). Open **Assistant** in the sidebar (or run `node scripts/duckchat.mjs`) and ask:
+
+1. *Which ducks does Anna Keller have, and what do their policies cover?* The model searches owners, lists ducks and policies.
+2. *What would a Pond liability policy for 50000 euro cost for Ducky McDuckface?* It calls `quote_policy` and answers with the €350.00 you showed in step 5.
+3. *Approve claim 3.* Signed in as `customer` the tool answers "Only adjusters can decide claims". Sign in as `adjuster` and it works: the assistant uses your role. Open the "tool calls" detail under an answer to show the MCP calls.
+
+4. *Issue a LIABILITY policy with 20000 euro coverage for Ducky McDuckface.* The answer is not final: a yellow **Please confirm** card appears (MCP elicitation). Click *No* and nothing is written; ask again and click *Yes*. The signed state makes sure the confirmed arguments are the executed ones.
+
+Watch the text appear word by word: the page streams the answer while Ollama writes it.
+
+"No cloud, no API key: a model on this laptop, the same services, the same roles."
+
+---
+
 ## Cheat sheet
+
+The REST API is described at `/openapi` (sidebar: OpenAPI ↗).
+
 
 | Want to show | Where |
 |--------------|-------|
@@ -132,6 +156,8 @@ so an LLM can list ducks, quote a policy or file a claim, with the same roles an
 | Scheduled job (02:00 nightly) | `config/PolicyMaintenance` |
 | Interceptor | `audit/AuditInterceptor` |
 | Auth | `security/AppAuthMechanism`, `security/DemoIdentityStore` |
+| MCP tools | `mcp/DuckTools`, `rest/RestApplication` (registers `/api/mcp`) |
+| MCP client + chat | `chat/*`, `app/chat.xhtml` |
 
 **If something goes wrong on stage:** restart the container (`docker compose restart`) to reset all data.
 Claim numbers in the REST examples depend on the seed order, so read them off the Claims page first.

@@ -1,5 +1,7 @@
 package eu.hansolo.duckinsurance.rest;
 
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import eu.hansolo.duckinsurance.domain.Customer;
 import eu.hansolo.duckinsurance.domain.Duck;
 import eu.hansolo.duckinsurance.domain.Policy;
@@ -24,6 +26,7 @@ import jakarta.ws.rs.core.UriInfo;
 
 import java.util.List;
 
+@Tag(name = "Owners", description = "Duck owners and their ducks and policies")
 @Path("/customers")
 @RequestScoped
 @Produces(MediaType.APPLICATION_JSON)
@@ -41,17 +44,20 @@ public class CustomerResource {
     private UriInfo         uriInfo;
 
 
+    @Operation(summary = "Search owners by name")
     @GET
     public List<Customer> list(@QueryParam("q") String query) {
         return customers.list(query);
     }
 
+    @Operation(summary = "Get one owner")
     @GET
     @Path("/{id}")
     public Customer get(@PathParam("id") long id) {
         return customers.get(id);
     }
 
+    @Operation(summary = "List the ducks of an owner")
     @GET
     @Path("/{id}/ducks")
     public List<Duck> ducks(@PathParam("id") long id) {
@@ -59,6 +65,7 @@ public class CustomerResource {
         return ducks.list(id);
     }
 
+    @Operation(summary = "List the policies of an owner")
     @GET
     @Path("/{id}/policies")
     public List<Policy> policies(@PathParam("id") long id) {
@@ -66,6 +73,7 @@ public class CustomerResource {
         return policies.forCustomer(id);
     }
 
+    @Operation(summary = "Register a new owner")
     @POST
     @RolesAllowed("ADMIN")
     public Response create(@Valid Customer customer) {

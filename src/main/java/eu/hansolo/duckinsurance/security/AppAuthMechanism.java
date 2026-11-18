@@ -27,6 +27,8 @@ public class AppAuthMechanism implements HttpAuthenticationMechanism {
 
     @Inject
     private IdentityStoreHandler identityStoreHandler;
+    @Inject
+    private InternalTokens       tokens;
 
 
     @Override
@@ -35,6 +37,10 @@ public class AppAuthMechanism implements HttpAuthenticationMechanism {
         if (header != null && header.regionMatches(true, 0, "Basic ", 0, 6)) {
             String[] parts = new String(Base64.getDecoder().decode(header.substring(6).trim()), StandardCharsets.UTF_8).split(":", 2);
             return authenticate(context, new UsernamePasswordCredential(parts[0], new Password(parts.length > 1 ? parts[1] : "")));
+        }
+        if (header != null && header.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            // only the application's own tokens (see InternalTokens), used by the internal MCP client of the Assistant page
+            return tokens.verify(header.substring(7).trim()).map(identity -> context.notifyContainerAboutLogin(identity.user(), identity.groups())).orElseGet(context::responseUnauthorized);
         }
         if (context.isAuthenticationRequest()) {
             return authenticate(context, context.getAuthParameters().getCredential());

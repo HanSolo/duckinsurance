@@ -1,6 +1,9 @@
-# Build stage: compile the WAR
-FROM maven:3.9-eclipse-temurin-21 AS build
+# Build stage: compile the WAR with Azul Zulu 21 (Maven from the distribution package)
+FROM azul/zulu-openjdk:21 AS build
+RUN apt-get update && apt-get install -y --no-install-recommends maven && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
+COPY third-party third-party
+RUN mvn -q -B -f third-party/mcp-jakarta-client/pom.xml install -Dmaven.test.skip=true
 COPY pom.xml .
 RUN mvn -q -B dependency:go-offline
 COPY src src

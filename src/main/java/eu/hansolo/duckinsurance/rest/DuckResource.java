@@ -1,5 +1,7 @@
 package eu.hansolo.duckinsurance.rest;
 
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import eu.hansolo.duckinsurance.domain.Duck;
 import eu.hansolo.duckinsurance.service.DuckService;
 import jakarta.annotation.security.RolesAllowed;
@@ -20,6 +22,7 @@ import jakarta.ws.rs.core.UriInfo;
 
 import java.util.List;
 
+@Tag(name = "Ducks", description = "The insured ducks")
 @Path("/ducks")
 @RequestScoped
 @Produces(MediaType.APPLICATION_JSON)
@@ -33,17 +36,20 @@ public class DuckResource {
     private UriInfo     uriInfo;
 
 
+    @Operation(summary = "List ducks, optionally of one owner")
     @GET
     public List<Duck> list(@QueryParam("ownerId") Long ownerId) {
         return ducks.list(ownerId);
     }
 
+    @Operation(summary = "Get one duck")
     @GET
     @Path("/{id}")
     public Duck get(@PathParam("id") long id) {
         return ducks.get(id);
     }
 
+    @Operation(summary = "Register a new duck")
     @POST
     @RolesAllowed("ADMIN")
     public Response create(@Valid Duck duck) {
