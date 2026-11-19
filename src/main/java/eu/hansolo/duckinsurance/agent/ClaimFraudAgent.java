@@ -113,11 +113,19 @@ public class ClaimFraudAgent {
         claims.applyVerdict(request.claimId(), verdict.score(), "[" + verdict.source() + "] " + verdict.reason());
     }
 
-    /** Clinic or model failed: log it, note it on the claim, and end the workflow by rethrowing. */
+    /**
+     * The workflow cannot go on. No clinic: the claim gets the rule-based check, which is no failure worth a stack trace. Anything else (model, bug): note it on the claim.
+     * Rethrowing ends the workflow.
+     */
     @HandleException
     void fallBack(RuntimeException e, ClaimCheckRequest request) {
-        LOG.log(Level.WARNING, "Fraud agent failed for claim " + request.claimId() + ", keeping the rule-based score: " + e);
-        claims.agentFailed(request.claimId(), String.valueOf(e.getMessage()));
+        if (e instanceof ClinicUnavailableException) {
+            LOG.info("Fraud agent: the DuckClinic is not reachable, claim " + request.claimId() + " gets the rule-based check");
+            claims.ruleCheck(request.claimId(), "The DuckClinic is not reachable, so only the rules were applied.");
+        } else {
+            LOG.log(Level.WARNING, "Fraud agent failed for claim " + request.claimId() + ", keeping the rule-based score: " + e);
+            claims.agentFailed(request.claimId(), String.valueOf(e.getMessage()));
+        }
         throw e;
     }
 

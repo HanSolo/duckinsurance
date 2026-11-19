@@ -97,16 +97,24 @@ public class ClaimService {
     /** Runs on a virtual thread, started after the submitting transaction committed. */
     @Audited
     public void runFraudCheck(long id) {
+        if (get(id).getStatus() != ClaimStatus.SUBMITTED) return;
+        ruleCheck(id, "Press Check to compare the claim with the DuckClinic.");
+    }
+
+    /** The rule-based score for an open claim, also as a replacement of an earlier score. A new claim moves to review. */
+    @Audited
+    public void ruleCheck(long id, String note) {
         Claim claim = get(id);
-        if (claim.getStatus() != ClaimStatus.SUBMITTED) return;
+        if (!claim.getStatus().isOpen()) return;
+        ClaimStatus before = claim.getStatus();
         BigDecimal coverage = policies.get(claim.getPolicyId()).getCoverageAmount();
         int ratio = claim.getAmount().multiply(BigDecimal.valueOf(100)).divide(coverage, 0, RoundingMode.HALF_UP).intValue();
         int shortText = claim.getDescription().length() < 25 ? 25 : 0;
         claim.setFraudScore(Math.min(100, ratio + shortText));
-        claim.setFraudReason("[rules] The amount is " + ratio + "% of the coverage" + (shortText > 0 ? " and the description is very short" : "") + ". Press Check to compare the claim with the DuckClinic.");
+        claim.setFraudReason("[rules] The amount is " + ratio + "% of the coverage" + (shortText > 0 ? " and the description is very short" : "") + ". " + note);
         claim.setStatus(ClaimStatus.UNDER_REVIEW);
         claims.save(claim);
-        publish(id, ClaimStatus.SUBMITTED, ClaimStatus.UNDER_REVIEW);
+        if (before == ClaimStatus.SUBMITTED) publish(id, before, ClaimStatus.UNDER_REVIEW);
     }
 
     public static final String CHECKING = "Checking with the fraud agent…";
@@ -135,6 +143,8 @@ public class ClaimService {
     /** The agent could not do its job: a new claim gets the rule-based check, an already scored claim keeps its score. */
     public void agentFailed(long id, String why) {
         Claim claim = get(id);
+        // the claim was already noted by the agent's exception handler (or finished)
+        if (claim.getStatus() != ClaimStatus.SUBMITTED && !CHECKING.equals(claim.getFraudReason())) return;
         if (claim.getStatus() == ClaimStatus.SUBMITTED) {
             runFraudCheck(id);
             claim = get(id);

@@ -36,6 +36,13 @@
             <version>1.0.0-M1</version>
             <scope>provided</scope>
         </dependency>
+        <!-- Settings from outside the code (environment, system properties); Payara provides the implementation -->
+        <dependency>
+            <groupId>org.eclipse.microprofile.config</groupId>
+            <artifactId>microprofile-config-api</artifactId>
+            <version>3.1</version>
+            <scope>provided</scope>
+        </dependency>
         <!-- Annotations only: Payara serves the generated document at /openapi -->
         <dependency>
             <groupId>org.eclipse.microprofile.openapi</groupId>

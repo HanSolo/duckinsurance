@@ -81,7 +81,13 @@ public class ClaimsBean implements Serializable {
 
     /** Starts the fraud agent for this one claim; it runs in the background, "Refresh" shows the result. */
     public void check(long id) {
-        Messages.attempt(() -> agentCheck.start(id), "The fraud agent is checking the claim, press Refresh in a moment");
+        try {
+            Messages.info(agentCheck.start(id) ? "The fraud agent is checking the claim, press Refresh in a moment" : "The DuckClinic is not reachable, so the rule-based check was applied");
+        } catch (RuntimeException e) {
+            Throwable root = e;
+            while (root.getCause() != null && root.getCause() != root) root = root.getCause();
+            Messages.error(root.getMessage() == null ? root.toString() : root.getMessage());
+        }
         load();
     }
 

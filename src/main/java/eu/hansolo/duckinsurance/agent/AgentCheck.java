@@ -1,5 +1,6 @@
 package eu.hansolo.duckinsurance.agent;
 
+import eu.hansolo.duckinsurance.config.AppConfig;
 import eu.hansolo.duckinsurance.domain.DomainException;
 import eu.hansolo.duckinsurance.domain.PolicyType;
 import eu.hansolo.duckinsurance.service.ClaimService;
@@ -30,19 +31,28 @@ public class AgentCheck {
     @Inject
     private PolicyService            policies;
     @Inject
+    private ClinicClient             clinic;
+    @Inject
     private Event<ClaimCheckRequest> requests;
 
 
     public static boolean enabled() {
-        return !"off".equalsIgnoreCase(System.getenv("DUCK_FRAUD_AGENT"));
+        return !"off".equalsIgnoreCase(AppConfig.get("DUCK_FRAUD_AGENT", "on"));
     }
 
-    /** @throws DomainException if the claim cannot be checked by the agent */
-    public void start(long claimId) {
+    /**
+     * @return true if the agent was started; false if the DuckClinic is not reachable and the claim got the rule-based check instead
+     * @throws DomainException if the claim cannot be checked
+     */
+    public boolean start(long claimId) {
         if (!enabled()) throw DomainException.conflict("The fraud agent is switched off (DUCK_FRAUD_AGENT=off)");
         var claim = claims.get(claimId);
         if (!claim.getStatus().isOpen()) throw DomainException.conflict("Claim is already " + claim.getStatus());
         if (policies.get(claim.getPolicyId()).getType() != PolicyType.VET_CARE) throw DomainException.conflict("The clinic can only confirm vet-care claims");
+        if (!clinic.check().state().equals("ok")) {
+            claims.ruleCheck(claimId, "The DuckClinic is not reachable, so only the rules were applied.");
+            return false;
+        }
         claims.markChecking(claimId);
         LOG.info("Fraud agent: check of claim " + claimId + " requested");
         executor.submit(() -> {
@@ -65,5 +75,6 @@ public class AgentCheck {
                 LOG.log(Level.SEVERE, "Fraud agent: could not finish claim " + claimId, e);
             }
         });
+        return true;
     }
 }

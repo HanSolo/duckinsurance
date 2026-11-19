@@ -1,5 +1,6 @@
 package eu.hansolo.duckinsurance.chat;
 
+import eu.hansolo.duckinsurance.config.AppConfig;
 import eu.hansolo.duckinsurance.security.InternalTokens;
 import eu.hansolo.mcp.client.Elicitation;
 import eu.hansolo.mcp.client.McpClient;
@@ -143,8 +144,7 @@ public class ChatBean implements Serializable {
         for (String role : List.of("ADMIN", "ADJUSTER", "CUSTOMER")) {
             if (external.isUserInRole(role)) groups.add(role);
         }
-        String own = System.getenv("MCP_SELF_URL");
-        return new Context(URI.create(own == null || own.isBlank() ? "http://localhost:8080/api/mcp" : own.trim()), external.getRemoteUser(), groups);
+        return new Context(URI.create(AppConfig.get("MCP_SELF_URL", "http://localhost:8080/api/mcp")), external.getRemoteUser(), groups);
     }
 
     /** A client for this application's MCP endpoint with a short-lived signed token of the user, so the user's role applies to every tool call. */

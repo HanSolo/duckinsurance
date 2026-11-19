@@ -1,7 +1,7 @@
 package eu.hansolo.duckinsurance.agent;
 
+import eu.hansolo.duckinsurance.config.AppConfig;
 import eu.hansolo.mcp.client.McpClient;
-import eu.hansolo.mcp.client.McpClientException;
 import eu.hansolo.mcp.client.ToolResult;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.json.Json;
@@ -32,8 +32,7 @@ public class ClinicClient {
 
 
     public URI endpoint() {
-        String url = System.getenv("DUCKCLINIC_MCP_URL");
-        return URI.create(url == null || url.isBlank() ? "http://host.docker.internal:8080/duck-clinic/api/mcp" : url.trim());
+        return URI.create(AppConfig.get("DUCKCLINIC_MCP_URL", "http://host.docker.internal:8080/duck-clinic/api/mcp"));
     }
 
     /** Is the clinic reachable, and does it offer the tools the agent needs? */
@@ -78,10 +77,12 @@ public class ClinicClient {
     private JsonObject call(String tool, JsonObject arguments) {
         try {
             ToolResult result = client().callTool(tool, arguments);
-            if (result.isError() || result.structuredContent() == null) throw new IllegalStateException("The clinic tool " + tool + " returned no usable result");
+            if (result.isError() || result.structuredContent() == null) throw new ClinicUnavailableException("The clinic tool " + tool + " returned no usable result", null);
             return result.structuredContent();
-        } catch (McpClientException e) {
-            throw new IllegalStateException("The clinic tool " + tool + " failed: " + e.getMessage(), e);
+        } catch (ClinicUnavailableException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new ClinicUnavailableException("The clinic tool " + tool + " failed: " + e.getMessage(), e);
         }
     }
 

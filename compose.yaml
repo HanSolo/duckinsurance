@@ -4,19 +4,15 @@ services:
     ports:
       - "${DUCKINSURANCE_PORT:-8081}:8080"   # application, REST API (/api) and MCP endpoint (/api/mcp)
       - "4848:4848"   # Payara admin console (optional)
+    # Model settings (Assistant and fraud agent) live in llm.env; edit it and run 'docker compose up -d' again. Needs Docker Compose 2.24 or newer for 'required: false'.
+    env_file:
+      - path: llm.env
+        required: false
     extra_hosts:
       - "host.docker.internal:host-gateway"   # reach Ollama on the host (needed on Linux, harmless elsewhere)
     environment:
-      # The Assistant page talks to Ollama on the host. For Claude: ANTHROPIC_BASE_URL=https://api.anthropic.com, a real key and model name.
-      ANTHROPIC_BASE_URL: http://host.docker.internal:11434
-      ANTHROPIC_API_KEY: ollama
-      ANTHROPIC_MODEL: qwen3.8:27b
       # The fraud agent asks the DuckClinic (its MCP server) on the host. The clinic runs on host port 8080, DuckInsurance is published on 8081 (see .env).
       DUCKCLINIC_MCP_URL: http://host.docker.internal:8080/duck-clinic/api/mcp
-      # The model of the Jakarta Agentic AI runtime (LargeLanguageModel injected into the fraud agent), read by Payara through MicroProfile Config
-      PAYARA_AGENTIC_LLM_PROVIDER: ollama
-      PAYARA_AGENTIC_LLM_MODEL: qwen3.8:27b
-      PAYARA_AGENTIC_LLM_OLLAMA_BASE_URL: http://host.docker.internal:11434
       # Set to "off" to use only the rule-based fraud check
       DUCK_FRAUD_AGENT: "on"
       # Ask the user before a tool changes data: if-supported (default), always, off

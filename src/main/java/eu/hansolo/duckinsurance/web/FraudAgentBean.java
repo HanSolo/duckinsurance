@@ -1,5 +1,6 @@
 package eu.hansolo.duckinsurance.web;
 
+import eu.hansolo.duckinsurance.config.AppConfig;
 import eu.hansolo.duckinsurance.agent.ClinicClient;
 import jakarta.annotation.PostConstruct;
 import jakarta.faces.view.ViewScoped;
@@ -21,7 +22,7 @@ public class FraudAgentBean implements Serializable {
 
     @PostConstruct
     public void check() {
-        if ("off".equalsIgnoreCase(System.getenv("DUCK_FRAUD_AGENT"))) {
+        if ("off".equalsIgnoreCase(AppConfig.get("DUCK_FRAUD_AGENT", "on"))) {
             state = "warn";
             text  = "Fraud agent switched off (DUCK_FRAUD_AGENT=off): claims get the rule-based check";
             return;
