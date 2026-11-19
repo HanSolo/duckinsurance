@@ -17,7 +17,10 @@ import jakarta.ai.agent.Outcome;
 import jakarta.ai.agent.Result;
 import jakarta.ai.agent.Trigger;
 import jakarta.inject.Inject;
+import eu.hansolo.duckinsurance.chat.LlmSettings;
 import jakarta.json.Json;
+import jakarta.json.JsonArray;
+import jakarta.json.JsonValue;
 import jakarta.json.JsonObject;
 
 import java.io.StringReader;
@@ -34,7 +37,7 @@ import java.util.logging.Logger;
  *   <li>{@link #askClinic}: reads the duck's visits from the DuckClinic over MCP and keeps those near the incident.</li>
  *   <li>{@link #judge}: the language model compares the claim with the clinic's records and returns a score and a reason.</li>
  *   <li>{@link #record}: stores the verdict on the claim and moves it to review.</li>
- *   <li>{@link #fallBack}: if the clinic or the model fails, the claim gets the plain rule-based check instead.</li>
+ *   <li>{@link #fallBack}: if the clinic or the model fails, the claim keeps its rule-based score.</li>
  * </ol>
  */
 @Agent
@@ -58,7 +61,7 @@ public class ClaimFraudAgent {
 
     @Trigger
     void start(ClaimCheckRequest request) {
-        LOG.fine(() -> "Fraud agent started for claim " + request.claimId());
+        LOG.info("Fraud agent: workflow started for claim " + request.claimId());
     }
 
     @Action
@@ -69,6 +72,7 @@ public class ClaimFraudAgent {
         Customer owner    = customers.get(duck.getOwnerId());
         String   text     = "Claim %s: %s EUR for %s (policy %s, %s, coverage %s EUR), owner %s, incident on %s, description: \"%s\"".formatted(claim.getClaimNumber(), claim.getAmount(), duck.getName(), policy.getPolicyNumber(), policy.getType(), policy.getCoverageAmount(), owner.getFullName(), claim.getIncidentDate(), claim.getDescription());
 
+        LOG.info("Fraud agent: asking the DuckClinic about claim " + request.claimId());
         // Unreachable clinic: the exception goes to fallBack(), the claim is not judged on missing data
         var found = clinic.findDuck(owner.getLastName(), duck.getName());
         if (found.isEmpty()) return new ClinicFacts(claim.getId(), text, false, List.of(), List.of());
@@ -92,8 +96,29 @@ public class ClaimFraudAgent {
                 All clinic visits of the duck: %s
                 Visits within %d days of the incident: %s
                 """.formatted(facts.claimText(), facts.duckKnown(), facts.visits().isEmpty() ? "none" : String.join("; ", facts.visits()), NEARBY_DAYS, facts.nearbyVisits().isEmpty() ? "none" : String.join("; ", facts.nearbyVisits()));
-        String answer = model.query(prompt);
+        LOG.info("Fraud agent: asking the model about claim " + facts.claimId());
+        String answer = ask(prompt);
         return new Result(true, parse(answer, facts));
+    }
+
+    /**
+     * The standard LargeLanguageModel of the runtime. If the runtime has no usable model configured (Payara answers with a NullPointerException then),
+     * the same prompt goes to the model server of this application (Ollama by default, see chat/LlmSettings), so the demo works without runtime configuration.
+     */
+    private String ask(String prompt) {
+        try {
+            String answer = model.query(prompt);
+            if (answer != null && !answer.isBlank()) return answer;
+            LOG.warning("Fraud agent: the runtime's LargeLanguageModel returned nothing, using " + LlmSettings.baseUrl());
+        } catch (RuntimeException e) {
+            LOG.warning("Fraud agent: the runtime's LargeLanguageModel is not usable (" + e + "), using " + LlmSettings.baseUrl());
+        }
+        JsonArray reply = LlmSettings.create().complete(Json.createArrayBuilder().build(), Json.createArrayBuilder().add(Json.createObjectBuilder().add("role", "user").add("content", prompt)).build());
+        StringBuilder text = new StringBuilder();
+        for (JsonValue block : reply) {
+            if ("text".equals(block.asJsonObject().getString("type", ""))) text.append(block.asJsonObject().getString("text", ""));
+        }
+        return text.toString();
     }
 
     @Outcome
@@ -101,11 +126,11 @@ public class ClaimFraudAgent {
         claims.applyVerdict(request.claimId(), verdict.score(), "[" + verdict.source() + "] " + verdict.reason());
     }
 
-    /** Clinic or model failed: log it, give the claim the rule-based check, and end the workflow by rethrowing. */
+    /** Clinic or model failed: log it, note it on the claim, and end the workflow by rethrowing. */
     @HandleException
     void fallBack(RuntimeException e, ClaimCheckRequest request) {
-        LOG.log(Level.WARNING, "Fraud agent failed for claim " + request.claimId() + ", using the rule-based check: " + e.getMessage());
-        claims.runFraudCheck(request.claimId());
+        LOG.log(Level.WARNING, "Fraud agent failed for claim " + request.claimId() + ", keeping the rule-based score: " + e);
+        claims.agentFailed(request.claimId(), String.valueOf(e.getMessage()));
         throw e;
     }
 

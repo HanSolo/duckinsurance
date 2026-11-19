@@ -1,5 +1,6 @@
 package eu.hansolo.duckinsurance.web;
 
+import eu.hansolo.duckinsurance.agent.AgentCheck;
 import eu.hansolo.duckinsurance.domain.Claim;
 import eu.hansolo.duckinsurance.domain.ClaimStatus;
 import eu.hansolo.duckinsurance.domain.Duck;
@@ -36,6 +37,8 @@ public class ClaimsBean implements Serializable {
     private DuckService       duckService;
     @Inject
     private VetService        vetService;
+    @Inject
+    private AgentCheck        agentCheck;
     @Inject
     private CustomerService   customerService;
     private List<Claim>       claims;
@@ -74,6 +77,16 @@ public class ClaimsBean implements Serializable {
             vetId = null;
             load();
         }
+    }
+
+    /** Starts the fraud agent for this one claim; it runs in the background, "Refresh" shows the result. */
+    public void check(long id) {
+        Messages.attempt(() -> agentCheck.start(id), "The fraud agent is checking the claim, press Refresh in a moment");
+        load();
+    }
+
+    public boolean canCheck(Claim claim) {
+        return claim.getStatus().isOpen() && !eu.hansolo.duckinsurance.service.ClaimService.CHECKING.equals(claim.getFraudReason()) && policiesById.get(claim.getPolicyId()).getType() == eu.hansolo.duckinsurance.domain.PolicyType.VET_CARE && AgentCheck.enabled();
     }
 
     public void approve(long id) {

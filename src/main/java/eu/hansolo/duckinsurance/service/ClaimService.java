@@ -103,25 +103,57 @@ public class ClaimService {
         int ratio = claim.getAmount().multiply(BigDecimal.valueOf(100)).divide(coverage, 0, RoundingMode.HALF_UP).intValue();
         int shortText = claim.getDescription().length() < 25 ? 25 : 0;
         claim.setFraudScore(Math.min(100, ratio + shortText));
+        claim.setFraudReason("[rules] The amount is " + ratio + "% of the coverage" + (shortText > 0 ? " and the description is very short" : "") + ". Press Check to compare the claim with the DuckClinic.");
         claim.setStatus(ClaimStatus.UNDER_REVIEW);
         claims.save(claim);
         publish(id, ClaimStatus.SUBMITTED, ClaimStatus.UNDER_REVIEW);
     }
 
-    /** The fraud agent's result: score and reason on the claim, then to review. */
+    public static final String CHECKING = "Checking with the fraud agent…";
+
+    /** Marks a claim as being checked by the agent, so that the page can show it. */
+    public void markChecking(long id) {
+        Claim claim = get(id);
+        if (!claim.getStatus().isOpen()) throw DomainException.conflict("Claim is already " + claim.getStatus());
+        claim.setFraudReason(CHECKING);
+        claims.save(claim);
+    }
+
+    /** The fraud agent's result: score and reason on the claim; a claim that was only submitted moves to review. */
     @Audited
     public void applyVerdict(long id, int score, String reason) {
         Claim claim = get(id);
-        if (claim.getStatus() != ClaimStatus.SUBMITTED) return;
+        if (!claim.getStatus().isOpen()) return;
+        ClaimStatus before = claim.getStatus();
         claim.setFraudScore(Math.max(0, Math.min(100, score)));
         claim.setFraudReason(reason.length() > 1000 ? reason.substring(0, 1000) : reason);
         claim.setStatus(ClaimStatus.UNDER_REVIEW);
         claims.save(claim);
-        publish(id, ClaimStatus.SUBMITTED, ClaimStatus.UNDER_REVIEW);
+        if (before == ClaimStatus.SUBMITTED) publish(id, before, ClaimStatus.UNDER_REVIEW);
+    }
+
+    /** The agent could not do its job: a new claim gets the rule-based check, an already scored claim keeps its score. */
+    public void agentFailed(long id, String why) {
+        Claim claim = get(id);
+        if (claim.getStatus() == ClaimStatus.SUBMITTED) {
+            runFraudCheck(id);
+            claim = get(id);
+        }
+        claim.setFraudReason("Fraud agent failed (" + why + "), the rule-based score stays");
+        claims.save(claim);
+    }
+
+    /** The caller, or "system" on background threads, where some runtimes throw instead of returning null. */
+    private String caller() {
+        try {
+            return securityContext.getCallerPrincipal() == null ? "system" : securityContext.getCallerPrincipal().getName();
+        } catch (RuntimeException e) {
+            return "system";
+        }
     }
 
     private void publish(Long id, ClaimStatus from, ClaimStatus to) {
-        String actor = securityContext.getCallerPrincipal() == null ? "system" : securityContext.getCallerPrincipal().getName();
+        String actor = caller();
         ClaimEvent event = new ClaimEvent(id, from, to, actor);
         events.fire(event);
         events.fireAsync(event);

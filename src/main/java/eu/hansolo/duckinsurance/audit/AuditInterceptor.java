@@ -34,7 +34,12 @@ public class AuditInterceptor {
     }
 
     private String caller() {
-        Principal principal = securityContext.getCallerPrincipal();
-        return principal == null ? "system" : principal.getName();
+        try {
+            Principal principal = securityContext.getCallerPrincipal();
+            return principal == null ? "system" : principal.getName();
+        } catch (RuntimeException e) {
+            // Background threads (fraud check, agent) have no caller; some runtimes throw instead of returning null
+            return "system";
+        }
     }
 }

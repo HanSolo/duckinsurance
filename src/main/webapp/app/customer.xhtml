@@ -62,7 +62,7 @@
                         <td class="mono">#{c.claimNumber}</td>
                         <td>#{c.description}</td>
                         <td class="mono"><h:outputText value="#{c.amount}"><f:convertNumber pattern="€#,##0.00"/></h:outputText></td>
-                        <td class="mono">#{c.fraudScore == null ? '…' : c.fraudScore}</td>
+                        <td class="mono">#{c.fraudScore != null ? c.fraudScore : (c.status.open ? '…' : '-')}</td>
                         <td><span class="badge #{c.status}">#{c.status}</span></td>
                     </tr>
                 </ui:repeat>

@@ -108,9 +108,9 @@ If Ollama runs on the host instead of in Docker, nothing changes (default `http:
 ## Fraud agent (Jakarta Agentic AI, draft)
 
 Vet-care claims are checked against the **DuckClinic** by an agent written to the draft [Jakarta Agentic AI 1.0 (milestone 1)](https://jakarta.ee/specifications/agentic-ai/1.0/) model: `agent/ClaimFraudAgent` is a CDI bean annotated `@Agent`.
-A CDI event (`ClaimCheckRequest`, fired by `event/FraudCheck` after a claim was submitted) starts the workflow: `@Trigger` -> `@Action` (reads the duck's visits from the clinic's MCP server through `agent/ClinicClient`, the MCP client library)
+New claims first get the quick rule-based check. The agent runs per claim, when you press **Check** in the claims list (`agent/AgentCheck`, in the background; press Refresh afterwards). A CDI event (`ClaimCheckRequest`) starts the workflow: `@Trigger` -> `@Action` (reads the duck's visits from the clinic's MCP server through `agent/ClinicClient`, the MCP client library)
 -> `@Decision` (the language model, injected as `LargeLanguageModel`, compares claim and visits and answers with a score and a reason) -> `@Outcome` (stores both on the claim and moves it to review).
-`@HandleException` gives the claim the old rule-based check when the clinic or the model fails. Other claim types (life, liability, coop) always get the rule-based check.
+`@HandleException` notes a failure on the claim, which keeps its rule-based score. The Check button only appears for open vet-care claims; other claim types always use the rule-based check.
 
 - The **Claims** page has an indicator like the assistant's: green when the DuckClinic MCP endpoint is reachable and offers `find_owners` and `list_visits`. The reason of the agent is shown under the fraud score.
 - Needs **Payara 7.2026.8 or newer** (the image uses 7.2026.10), which ships the first preview of the API. The API may still change.

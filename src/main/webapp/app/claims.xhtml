@@ -50,10 +50,12 @@
                             <td class="mono"><h:outputText value="#{c.amount}"><f:convertNumber pattern="€#,##0.00"/></h:outputText></td>
                             <td>
                                 <h:panelGroup rendered="#{c.fraudScore != null}"><span class="meter risk-#{c.fraudScore ge 60 ? 'high' : (c.fraudScore ge 30 ? 'mid' : 'low')}"><i style="width: #{c.fraudScore}%"></i></span> <span class="mono">#{c.fraudScore}</span><h:panelGroup rendered="#{c.fraudReason != null}"><div class="muted note">#{c.fraudReason}</div></h:panelGroup></h:panelGroup>
-                                <h:panelGroup rendered="#{c.fraudScore == null}"><span class="muted">checking…</span></h:panelGroup>
+                                <h:panelGroup rendered="#{c.fraudScore == null and c.status.open}"><span class="muted">checking…</span></h:panelGroup>
+                                <h:panelGroup rendered="#{c.fraudScore == null and not c.status.open}"><span class="muted">-</span></h:panelGroup>
                             </td>
                             <td><span class="badge #{c.status}">#{c.status}</span></td>
                             <td class="right nowrap">
+                                <h:commandButton value="Check" action="#{claimsBean.check(c.id)}" styleClass="btn small ghost" title="Ask the fraud agent: compare this claim with the DuckClinic records" rendered="#{claimsBean.canCheck(c)}"/>
                                 <h:panelGroup rendered="#{claimsBean.adjuster and c.status.open}">
                                     <h:commandButton value="Approve" action="#{claimsBean.approve(c.id)}" styleClass="btn small primary"/>
                                     <h:commandButton value="Reject" action="#{claimsBean.reject(c.id)}" styleClass="btn small ghost"/>

@@ -144,9 +144,9 @@ Watch the text appear word by word: the page streams the answer while Ollama wri
 
 Needs the DuckClinic running with the demo data (`duck-clinic-patch/`). Open **Claims**: the **Fraud agent** indicator is green when the clinic's MCP server is reachable.
 
-1. Submit a vet-care claim for **Don Quixote** (a wing fracture surgery 30 days ago). The score rises and the reason says that the clinic has no matching visit.
-2. Look at the claim for **Sir Quacksalot** or **Bill**: low score, the reason names the clinic visit that matches.
-3. Stop the clinic and submit another claim: the indicator turns red and the claim still gets a score from the rule-based check.
+1. Submit a vet-care claim for **Don Quixote** (a wing fracture surgery 30 days ago). It gets a quick rule-based score first. Press **Check** on its row, wait a moment and press **Refresh**: the score rises and the reason says that the clinic has no matching visit.
+2. Press **Check** on the claim of **Sir Quacksalot** or **Bill**: low score, the reason names the clinic visit that matches.
+3. Stop the clinic and press **Check** again: the indicator turns red and the claim keeps its rule-based score, with a note that the agent failed.
 
 "An agent in plain Jakarta EE: a CDI event, four annotated methods, and it talks to another application through MCP."
 
