@@ -34,6 +34,7 @@ Data lives in the server's default H2 datasource and is re-created (with seed da
 | Concurrency 3.1      | `config/ConcurrencyConfig`, `event/FraudCheck`, `config/PolicyMaintenance` | virtual-thread executor, `@Asynchronous(runAt = @Schedule)` |
 | Transactions 2.0     | `service/`                              | `@Transactional` services |
 | Security 4.0         | `security/`                             | `HttpAuthenticationMechanism` (session for Faces, Basic for REST), `IdentityStore` |
+| Agentic AI 1.0 (draft) | `agent/`                              | `@Agent`, `@Trigger`, `@Action`, `@Decision`, `@Outcome`, `@HandleException`, injected `LargeLanguageModel` |
 | Validation 3.1       | `domain/`, `rest/Requests`              | constraints on entities and records |
 | Faces 4.1            | `src/main/webapp/`                      | Facelets template, view-scoped beans, `f:ajax`, `viewParam` |
 
@@ -117,4 +118,6 @@ New claims first get the quick rule-based check. The agent runs per claim, when 
 - Settings: `DUCKCLINIC_MCP_URL` (default `http://host.docker.internal:8080/duck-clinic/api/mcp`), `DUCK_FRAUD_AGENT=off` to switch the agent off.
 - The clinic uses host port 8080, so DuckInsurance is published on **8081** (`DUCKINSURANCE_PORT` in `.env`, default 8081). The container itself still listens on 8080, which is why `MCP_SELF_URL` keeps its default. To move the clinic instead, set `DUCKINSURANCE_PORT=8080` and `DUCKCLINIC_MCP_URL`.
 - Demo data: copy `duck-clinic-patch/DataInitializer.java` into the clinic (see `duck-clinic-patch/README.md`), so the insured ducks exist there.
-- **Which model answers:** the agent injects the standard `LargeLanguageModel` of the runtime. How Payara 7.2026.10 is told to use the local Ollama is not documented in the sources I could read; configure it as the Payara documentation says.
+- **Which model answers:** the agent injects the standard `LargeLanguageModel`. Payara reads its settings through MicroProfile Config: `payara.agentic.llm.provider`, `.model` and `.ollama.base-url`, set in `compose.yaml` as the environment variables `PAYARA_AGENTIC_LLM_PROVIDER`, `PAYARA_AGENTIC_LLM_MODEL` and `PAYARA_AGENTIC_LLM_OLLAMA_BASE_URL` (host Ollama, model `qwen3.8:27b`). The key names come from a third-party demo of the Payara source (tag 7.2026.9) and are not in Payara's documentation.
+  The reason shown under the fraud score starts with `[agentic-ai]`. `[rules]` means the model answered but not in the expected JSON format, so a fixed rule judged instead. If the model or the clinic cannot be reached, the claim keeps its rule-based score and the reason says that the agent failed.
+- **What does not use the spec:** the Assistant page (streaming, tool calls and confirmations are outside the draft API, it uses its own client) and the reading of the clinic (MCP client library).

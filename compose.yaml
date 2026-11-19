@@ -13,6 +13,10 @@ services:
       ANTHROPIC_MODEL: qwen3.8:27b
       # The fraud agent asks the DuckClinic (its MCP server) on the host. The clinic runs on host port 8080, DuckInsurance is published on 8081 (see .env).
       DUCKCLINIC_MCP_URL: http://host.docker.internal:8080/duck-clinic/api/mcp
+      # The model of the Jakarta Agentic AI runtime (LargeLanguageModel injected into the fraud agent), read by Payara through MicroProfile Config
+      PAYARA_AGENTIC_LLM_PROVIDER: ollama
+      PAYARA_AGENTIC_LLM_MODEL: qwen3.8:27b
+      PAYARA_AGENTIC_LLM_OLLAMA_BASE_URL: http://host.docker.internal:11434
       # Set to "off" to use only the rule-based fraud check
       DUCK_FRAUD_AGENT: "on"
       # Ask the user before a tool changes data: if-supported (default), always, off

@@ -17,10 +17,7 @@ import jakarta.ai.agent.Outcome;
 import jakarta.ai.agent.Result;
 import jakarta.ai.agent.Trigger;
 import jakarta.inject.Inject;
-import eu.hansolo.duckinsurance.chat.LlmSettings;
 import jakarta.json.Json;
-import jakarta.json.JsonArray;
-import jakarta.json.JsonValue;
 import jakarta.json.JsonObject;
 
 import java.io.StringReader;
@@ -97,28 +94,18 @@ public class ClaimFraudAgent {
                 Visits within %d days of the incident: %s
                 """.formatted(facts.claimText(), facts.duckKnown(), facts.visits().isEmpty() ? "none" : String.join("; ", facts.visits()), NEARBY_DAYS, facts.nearbyVisits().isEmpty() ? "none" : String.join("; ", facts.nearbyVisits()));
         LOG.info("Fraud agent: asking the model about claim " + facts.claimId());
-        String answer = ask(prompt);
-        return new Result(true, parse(answer, facts));
+        Answer answer = ask(prompt);
+        return new Result(true, parse(answer.text(), facts, answer.via()));
     }
 
-    /**
-     * The standard LargeLanguageModel of the runtime. If the runtime has no usable model configured (Payara answers with a NullPointerException then),
-     * the same prompt goes to the model server of this application (Ollama by default, see chat/LlmSettings), so the demo works without runtime configuration.
-     */
-    private String ask(String prompt) {
-        try {
-            String answer = model.query(prompt);
-            if (answer != null && !answer.isBlank()) return answer;
-            LOG.warning("Fraud agent: the runtime's LargeLanguageModel returned nothing, using " + LlmSettings.baseUrl());
-        } catch (RuntimeException e) {
-            LOG.warning("Fraud agent: the runtime's LargeLanguageModel is not usable (" + e + "), using " + LlmSettings.baseUrl());
-        }
-        JsonArray reply = LlmSettings.create().complete(Json.createArrayBuilder().build(), Json.createArrayBuilder().add(Json.createObjectBuilder().add("role", "user").add("content", prompt)).build());
-        StringBuilder text = new StringBuilder();
-        for (JsonValue block : reply) {
-            if ("text".equals(block.asJsonObject().getString("type", ""))) text.append(block.asJsonObject().getString("text", ""));
-        }
-        return text.toString();
+    /** The standard LargeLanguageModel of the runtime, configured with payara.agentic.llm.* (see compose.yaml). Failures end the workflow in fallBack(). */
+    private Answer ask(String prompt) {
+        String answer = model.query(prompt);
+        if (answer == null || answer.isBlank()) throw new IllegalStateException("The model returned no answer");
+        return new Answer(answer, "agentic-ai");
+    }
+
+    private record Answer(String text, String via) {
     }
 
     @Outcome
@@ -135,12 +122,12 @@ public class ClaimFraudAgent {
     }
 
     /** The model should answer with JSON; small models often add text around it, so take the first {...} and fall back to a rule if that fails. */
-    static Verdict parse(String answer, ClinicFacts facts) {
+    static Verdict parse(String answer, ClinicFacts facts, String via) {
         try {
             int from = answer.indexOf('{'), to = answer.lastIndexOf('}');
             JsonObject json = Json.createReader(new StringReader(answer.substring(from, to + 1))).readObject();
             int score = Math.max(0, Math.min(100, json.getInt("score")));
-            return new Verdict(score, json.getString("reason", "No reason given"), "model");
+            return new Verdict(score, json.getString("reason", "No reason given"), via);
         } catch (RuntimeException e) {
             boolean ok = facts.duckKnown() && !facts.nearbyVisits().isEmpty();
             return new Verdict(ok ? 15 : 70, ok ? "The clinic has a visit near the incident date (the model's answer could not be read)." : "No clinic visit near the incident date (the model's answer could not be read).", "rules");
