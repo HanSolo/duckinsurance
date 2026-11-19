@@ -4,13 +4,13 @@
 //   node scripts/duckchat.mjs                      interactive
 //   node scripts/duckchat.mjs "Which ducks does Anna Keller have?"
 //
-// Settings (environment): OLLAMA_URL (http://localhost:11434), OLLAMA_MODEL (qwen3.8:27b), MCP_URL (http://localhost:8080/api/mcp), MCP_USER / MCP_PASSWORD (customer / customer)
+// Settings (environment): OLLAMA_URL (http://localhost:11434), OLLAMA_MODEL (qwen3.8:27b), MCP_URL (http://localhost:8081/api/mcp), MCP_USER / MCP_PASSWORD (customer / customer)
 // The role of MCP_USER decides what the model may do: 'customer' cannot decide claims, 'adjuster' and 'admin' can.
 import readline from 'node:readline/promises';
 
 const OLLAMA = process.env.OLLAMA_URL ?? 'http://localhost:11434';
 const MODEL = process.env.OLLAMA_MODEL ?? 'qwen3.8:27b';
-const MCP = process.env.MCP_URL ?? 'http://localhost:8080/api/mcp';
+const MCP = process.env.MCP_URL ?? 'http://localhost:8081/api/mcp';
 const USER = process.env.MCP_USER ?? 'customer';
 const PASS = process.env.MCP_PASSWORD ?? USER;
 const VERSION = '2026-07-28';

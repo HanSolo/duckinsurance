@@ -13,7 +13,7 @@ mvn package
 java -jar payara-micro.jar --deploy target/duckinsurance.war
 ```
 
-Open <http://localhost:8080> and sign in:
+Open <http://localhost:8081> and sign in:
 
 | User       | Password   | Role     | Can do                                   |
 |------------|------------|----------|------------------------------------------|
@@ -50,12 +50,12 @@ An editor such as Swagger UI or Postman can import that URL. Use HTTP Basic with
 
 
 ```bash
-curl -u admin:admin http://localhost:8080/api/customers
-curl -u admin:admin http://localhost:8080/api/policies/quote -H 'Content-Type: application/json' \
+curl -u admin:admin http://localhost:8081/api/customers
+curl -u admin:admin http://localhost:8081/api/policies/quote -H 'Content-Type: application/json' \
      -d '{"duckId":1,"type":"VET_CARE","coverageAmount":5000}'
-curl -u customer:customer http://localhost:8080/api/claims -H 'Content-Type: application/json' \
+curl -u customer:customer http://localhost:8081/api/claims -H 'Content-Type: application/json' \
      -d '{"policyId":1,"vetId":1,"description":"Sir Quacksalot swallowed a bread bag clip","amount":600,"incidentDate":"2026-10-01"}'
-curl -u adjuster:adjuster http://localhost:8080/api/claims/3/decision -H 'Content-Type: application/json' \
+curl -u adjuster:adjuster http://localhost:8081/api/claims/3/decision -H 'Content-Type: application/json' \
      -d '{"approve":true,"note":"ok"}'
 ```
 
@@ -74,7 +74,7 @@ Resources: `customers` (the owners), `customers/{id}/ducks`, `customers/{id}/pol
 
 The WAR contains the [Jakarta MCP server](https://github.com/HanSolo/jakarta-mcp-server) library (`eu.hansolo.mcp:mcp-jakarta:0.9.0`).
 `mcp/DuckTools` turns the CDI services into 10 tools (`search_owners`, `list_ducks`, `list_vets`, `list_policies`, `quote_policy`,
-`issue_policy`, `list_claims`, `submit_claim`, `decide_claim`, `get_stats`). The endpoint is `http://localhost:8080/api/mcp` and uses the
+`issue_policy`, `list_claims`, `submit_claim`, `decide_claim`, `get_stats`). The endpoint is `http://localhost:8081/api/mcp` and uses the
 application's own login (HTTP Basic), so roles apply: `customer` cannot decide claims, `adjuster` and `admin` can.
 
 The server speaks only MCP revision **2026-07-28** (no `initialize` handshake). Clients that still need the handshake are refused with HTTP 400.
@@ -115,6 +115,6 @@ A CDI event (`ClaimCheckRequest`, fired by `event/FraudCheck` after a claim was 
 - The **Claims** page has an indicator like the assistant's: green when the DuckClinic MCP endpoint is reachable and offers `find_owners` and `list_visits`. The reason of the agent is shown under the fraud score.
 - Needs **Payara 7.2026.8 or newer** (the image uses 7.2026.10), which ships the first preview of the API. The API may still change.
 - Settings: `DUCKCLINIC_MCP_URL` (default `http://host.docker.internal:8080/duck-clinic/api/mcp`), `DUCK_FRAUD_AGENT=off` to switch the agent off.
-- Both applications default to host port 8080. Start DuckInsurance with `DUCKINSURANCE_PORT=8081 docker compose up --build`, or start the clinic on another port and set `DUCKCLINIC_MCP_URL`.
+- The clinic uses host port 8080, so DuckInsurance is published on **8081** (`DUCKINSURANCE_PORT` in `.env`, default 8081). The container itself still listens on 8080, which is why `MCP_SELF_URL` keeps its default. To move the clinic instead, set `DUCKINSURANCE_PORT=8080` and `DUCKCLINIC_MCP_URL`.
 - Demo data: copy `duck-clinic-patch/DataInitializer.java` into the clinic (see `duck-clinic-patch/README.md`), so the insured ducks exist there.
 - **Which model answers:** the agent injects the standard `LargeLanguageModel` of the runtime. How Payara 7.2026.10 is told to use the local Ollama is not documented in the sources I could read; configure it as the Payara documentation says.

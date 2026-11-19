@@ -2,7 +2,7 @@ services:
   duckinsurance:
     build: .
     ports:
-      - "${DUCKINSURANCE_PORT:-8080}:8080"   # application, REST API (/api) and MCP endpoint (/api/mcp)
+      - "${DUCKINSURANCE_PORT:-8081}:8080"   # application, REST API (/api) and MCP endpoint (/api/mcp)
       - "4848:4848"   # Payara admin console (optional)
     extra_hosts:
       - "host.docker.internal:host-gateway"   # reach Ollama on the host (needed on Linux, harmless elsewhere)
@@ -11,7 +11,7 @@ services:
       ANTHROPIC_BASE_URL: http://host.docker.internal:11434
       ANTHROPIC_API_KEY: ollama
       ANTHROPIC_MODEL: qwen3.8:27b
-      # The fraud agent asks the DuckClinic (its MCP server) on the host. Both apps default to port 8080: start the clinic on another port and set the URL here.
+      # The fraud agent asks the DuckClinic (its MCP server) on the host. The clinic runs on host port 8080, DuckInsurance is published on 8081 (see .env).
       DUCKCLINIC_MCP_URL: http://host.docker.internal:8080/duck-clinic/api/mcp
       # Set to "off" to use only the rule-based fraud check
       DUCK_FRAUD_AGENT: "on"
