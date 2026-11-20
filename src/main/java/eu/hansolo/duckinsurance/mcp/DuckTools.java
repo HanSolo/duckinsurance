@@ -117,12 +117,12 @@ public class DuckTools {
     }
 
     @McpTool(name = "quote_policy", description = "Calculates the yearly premium for a policy without issuing it. The premium depends on the policy type, the coverage, the breed and the age of the duck.", readOnlyHint = McpTool.Hint.TRUE)
-    public QuoteView quotePolicy(@McpParam(description = "Duck id") long duckId, @McpParam(description = "Policy type: VET_CARE, LIFE, LIABILITY or COOP") PolicyType type, @McpParam(description = "Coverage amount in euro") double coverage) {
+    public QuoteView quotePolicy(@McpParam(description = "Duck id") long duckId, @McpParam(description = "Policy type: VET_CARE, PHYSIO, LIFE, LIABILITY or COOP") PolicyType type, @McpParam(description = "Coverage amount in euro") double coverage) {
         return run(() -> new QuoteView(duckId, type.name(), coverage, policies.quote(duckId, type, BigDecimal.valueOf(coverage)).doubleValue()));
     }
 
     @McpTool(name = "issue_policy", description = "Issues a new one-year policy for a duck. Owners under 18 cannot hold a policy. Changes data: the user is asked to confirm first, only call it when the user asked for it.", destructiveHint = McpTool.Hint.FALSE)
-    public ToolResult issuePolicy(@McpParam(description = "Duck id") long duckId, @McpParam(description = "Policy type: VET_CARE, LIFE, LIABILITY or COOP") PolicyType type, @McpParam(description = "Coverage amount in euro") double coverage, @McpParam(description = "Start date, ISO format 2026-11-24. Default is today") Optional<String> startDate, ToolCall call) {
+    public ToolResult issuePolicy(@McpParam(description = "Duck id") long duckId, @McpParam(description = "Policy type: VET_CARE, PHYSIO, LIFE, LIABILITY or COOP") PolicyType type, @McpParam(description = "Coverage amount in euro") double coverage, @McpParam(description = "Start date, ISO format 2026-11-24. Default is today") Optional<String> startDate, ToolCall call) {
         LocalDate start = date(startDate.orElse(null), LocalDate.now());
         ToolResult ask = confirm(call, "issue_policy", duckId + "|" + type + "|" + coverage + "|" + start, "Issue a " + type + " policy with " + (long) coverage + " euro coverage for duck " + duckId + "?");
         if (ask != null) return ask;

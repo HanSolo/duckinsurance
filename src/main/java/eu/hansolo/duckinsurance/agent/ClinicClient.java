@@ -2,7 +2,6 @@ package eu.hansolo.duckinsurance.agent;
 
 import eu.hansolo.duckinsurance.config.AppConfig;
 import eu.hansolo.mcp.client.McpClient;
-import eu.hansolo.mcp.client.ToolResult;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.json.Json;
 import jakarta.json.JsonArray;
@@ -76,9 +75,7 @@ public class ClinicClient {
 
     private JsonObject call(String tool, JsonObject arguments) {
         try {
-            ToolResult result = client().callTool(tool, arguments);
-            if (result.isError() || result.structuredContent() == null) throw new ClinicUnavailableException("The clinic tool " + tool + " returned no usable result", null);
-            return result.structuredContent();
+            return McpJson.data(tool, client().callTool(tool, arguments));
         } catch (ClinicUnavailableException e) {
             throw e;
         } catch (RuntimeException e) {

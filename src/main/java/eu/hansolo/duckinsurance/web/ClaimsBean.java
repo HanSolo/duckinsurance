@@ -1,6 +1,7 @@
 package eu.hansolo.duckinsurance.web;
 
 import eu.hansolo.duckinsurance.agent.AgentCheck;
+import eu.hansolo.duckinsurance.agent.PhysioBooking;
 import eu.hansolo.duckinsurance.domain.Claim;
 import eu.hansolo.duckinsurance.domain.ClaimStatus;
 import eu.hansolo.duckinsurance.domain.Duck;
@@ -39,6 +40,8 @@ public class ClaimsBean implements Serializable {
     private VetService        vetService;
     @Inject
     private AgentCheck        agentCheck;
+    @Inject
+    private PhysioBooking     physioBooking;
     @Inject
     private CustomerService   customerService;
     private List<Claim>       claims;
@@ -82,7 +85,32 @@ public class ClaimsBean implements Serializable {
     /** Starts the fraud agent for this one claim; it runs in the background, "Refresh" shows the result. */
     public void check(long id) {
         try {
-            Messages.info(agentCheck.start(id) ? "The fraud agent is checking the claim, press Refresh in a moment" : "The DuckClinic is not reachable, so the rule-based check was applied");
+            Messages.info(agentCheck.start(id) ? "The fraud agent is checking the claim, press Refresh in a moment" : "The clinics are not reachable, so the rule-based check was applied");
+        } catch (RuntimeException e) {
+            Throwable root = e;
+            while (root.getCause() != null && root.getCause() != root) root = root.getCause();
+            Messages.error(root.getMessage() == null ? root.toString() : root.getMessage());
+        }
+        load();
+    }
+
+    private static boolean isCheckable(eu.hansolo.duckinsurance.domain.PolicyType type) {
+        return type == eu.hansolo.duckinsurance.domain.PolicyType.VET_CARE || type == eu.hansolo.duckinsurance.domain.PolicyType.PHYSIO;
+    }
+
+    /** The agent's proposal for a claim as text, or null. */
+    public String proposalText(Claim claim) {
+        return PhysioBooking.text(claim.getProposal());
+    }
+
+    /** Books the proposed appointment in the physical therapy clinic (adjusters and admins). */
+    public void book(long id) {
+        if (!isAdjuster()) {
+            Messages.error("Only adjusters can book the proposed appointment");
+            return;
+        }
+        try {
+            Messages.info("Booked " + physioBooking.book(id) + " in the Duck Physical Therapy Clinic");
         } catch (RuntimeException e) {
             Throwable root = e;
             while (root.getCause() != null && root.getCause() != root) root = root.getCause();
@@ -92,7 +120,7 @@ public class ClaimsBean implements Serializable {
     }
 
     public boolean canCheck(Claim claim) {
-        return claim.getStatus().isOpen() && !eu.hansolo.duckinsurance.service.ClaimService.CHECKING.equals(claim.getFraudReason()) && policiesById.get(claim.getPolicyId()).getType() == eu.hansolo.duckinsurance.domain.PolicyType.VET_CARE && AgentCheck.enabled();
+        return claim.getStatus().isOpen() && !eu.hansolo.duckinsurance.service.ClaimService.CHECKING.equals(claim.getFraudReason()) && isCheckable(policiesById.get(claim.getPolicyId()).getType()) && AgentCheck.enabled();
     }
 
     public void approve(long id) {

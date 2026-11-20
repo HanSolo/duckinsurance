@@ -13,6 +13,8 @@ services:
     environment:
       # The fraud agent asks the DuckClinic (its MCP server) on the host. The clinic runs on host port 8080, DuckInsurance is published on 8081 (see .env).
       DUCKCLINIC_MCP_URL: http://host.docker.internal:8080/duck-clinic/api/mcp
+      # The fraud agent also asks the Duck Physical Therapy Clinic (Quarkus, MCP on host port 8082) and can propose a booking there
+      PHYSIOCLINIC_MCP_URL: http://host.docker.internal:8082/mcp
       # Set to "off" to use only the rule-based fraud check
       DUCK_FRAUD_AGENT: "on"
       # Ask the user before a tool changes data: if-supported (default), always, off

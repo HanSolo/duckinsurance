@@ -12,7 +12,7 @@
 5. **Reset:** data is re-created on every restart (`docker compose restart`), so you can always go back to the start.
 
 The model follows the Duck-Clinic: **owners** have **ducks**, **vets** treat them. A **policy** insures one duck
-(types: Vet care, Duck life, Pond liability, Coop & pond), a **claim** belongs to a policy and may name the treating vet.
+(types: Vet care, Physiotherapy, Duck life, Pond liability, Coop & pond), a **claim** belongs to a policy and may name the treating vet.
 
 ---
 
@@ -147,6 +147,11 @@ Needs the DuckClinic running with the demo data (`duck-clinic-patch/`). Open **C
 1. Submit a vet-care claim for **Don Quixote** (a wing fracture surgery 30 days ago). It gets a quick rule-based score first. Press **Check** on its row, wait a moment and press **Refresh**: the score rises and the reason says that the clinic has no matching visit.
 2. Press **Check** on the claim of **Sir Quacksalot** or **Bill**: low score, the reason names the clinic visit that matches.
 3. Stop the clinic and press **Check** again: the indicator turns red and the claim keeps its rule-based score, with a note that the agent failed.
+
+**Physical therapy clinic (optional):** needs the Duck Physical Therapy Clinic on port 8082 with `duck-physio-patch/`. The second indicator turns green.
+
+4. Press **Check** on the physiotherapy claim of **Sir Quacksalot** (treadmill sessions): the clinic has an appointment 28 days ago, low score.
+5. Press **Check** on the claim of **Duchess** (hydrotherapy): no clinic has a record, so the score is high and a dashed **proposal** appears: book a therapy session in the physical therapy clinic. Log in as an adjuster and press **Book it**; the appointment number is added to the reason, and the booking is visible in the clinic.
 
 "An agent in plain Jakarta EE: a CDI event, four annotated methods, and it talks to another application through MCP."
 

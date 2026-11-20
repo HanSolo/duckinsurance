@@ -34,6 +34,9 @@ public class Claim {
     /** Why the fraud check gave this score; written by the fraud agent. */
     @Column(length = 1000)
     private String        fraudReason;
+    /** JSON of a proposed physical therapy appointment (see agent/ClaimFraudAgent), or null. */
+    @Column(length = 1000)
+    private String        proposal;
     private String        decisionNote;
     private String        decidedBy;
 
@@ -60,6 +63,8 @@ public class Claim {
     public void setStatus(ClaimStatus status) { this.status = status; }
     public Integer getFraudScore() { return fraudScore; }
     public void setFraudScore(Integer fraudScore) { this.fraudScore = fraudScore; }
+    public String getProposal() { return proposal; }
+    public void setProposal(String proposal) { this.proposal = proposal; }
     public String getFraudReason() { return fraudReason; }
     public void setFraudReason(String fraudReason) { this.fraudReason = fraudReason; }
     public String getDecisionNote() { return decisionNote; }

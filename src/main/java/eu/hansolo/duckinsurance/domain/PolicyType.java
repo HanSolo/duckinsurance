@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 public enum PolicyType {
 
     VET_CARE("Vet care", "0.030"),
+    PHYSIO("Physiotherapy", "0.020"),
     LIFE("Duck life", "0.050"),
     LIABILITY("Pond liability", "0.004"),
     COOP("Coop & pond", "0.008");

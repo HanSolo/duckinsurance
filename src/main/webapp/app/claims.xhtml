@@ -15,7 +15,9 @@
     <ui:define name="content">
         <h:form id="agent">
             <h:panelGroup id="agentStatus" layout="block" styleClass="chat-status">
-                <span class="dot #{fraudAgentBean.state}"></span><span class="muted"><strong>Fraud agent</strong> (Jakarta Agentic AI): #{fraudAgentBean.text}</span>
+                <span class="dot #{fraudAgentBean.state}"></span><span class="muted"><strong>Fraud agent</strong> (Jakarta Agentic AI), DuckClinic: #{fraudAgentBean.text}</span><br/>
+                <h:panelGroup rendered="#{not fraudAgentBean.off}"><span class="dot #{fraudAgentBean.physioState}"></span><span class="muted">Physical therapy clinic: #{fraudAgentBean.physioText}</span><br/></h:panelGroup>
+                <span class="muted">Claims are still checked by the rules if a clinic is not reachable.</span>
                 <h:commandButton value="Check again" styleClass="btn ghost small">
                     <f:ajax listener="#{fraudAgentBean.check}" execute="@this" render="agentStatus"/>
                 </h:commandButton>
@@ -49,7 +51,8 @@
                             <td>#{c.description}<h:panelGroup rendered="#{c.decisionNote != null}"><div class="muted note">#{c.decidedBy}: #{c.decisionNote}</div></h:panelGroup></td>
                             <td class="mono"><h:outputText value="#{c.amount}"><f:convertNumber pattern="€#,##0.00"/></h:outputText></td>
                             <td>
-                                <h:panelGroup rendered="#{c.fraudScore != null}"><span class="meter risk-#{c.fraudScore ge 60 ? 'high' : (c.fraudScore ge 30 ? 'mid' : 'low')}"><i style="width: #{c.fraudScore}%"></i></span> <span class="mono">#{c.fraudScore}</span><h:panelGroup rendered="#{c.fraudReason != null}"><div class="muted note">#{c.fraudReason}</div></h:panelGroup></h:panelGroup>
+                                <h:panelGroup rendered="#{c.fraudScore != null}"><span class="meter risk-#{c.fraudScore ge 60 ? 'high' : (c.fraudScore ge 30 ? 'mid' : 'low')}"><i style="width: #{c.fraudScore}%"></i></span> <span class="mono">#{c.fraudScore}</span><h:panelGroup rendered="#{c.fraudReason != null}"><div class="muted note">#{c.fraudReason}</div></h:panelGroup><h:panelGroup rendered="#{c.proposal != null}"><div class="note proposal">#{claimsBean.proposalText(c)}<br/>
+                                    <h:commandButton value="Book it" action="#{claimsBean.book(c.id)}" styleClass="btn small primary" rendered="#{claimsBean.adjuster}" title="Book this appointment in the Duck Physical Therapy Clinic"/></div></h:panelGroup></h:panelGroup>
                                 <h:panelGroup rendered="#{c.fraudScore == null and c.status.open}"><span class="muted">checking…</span></h:panelGroup>
                                 <h:panelGroup rendered="#{c.fraudScore == null and not c.status.open}"><span class="muted">-</span></h:panelGroup>
                             </td>

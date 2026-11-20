@@ -111,6 +111,7 @@ public class ClaimService {
         int ratio = claim.getAmount().multiply(BigDecimal.valueOf(100)).divide(coverage, 0, RoundingMode.HALF_UP).intValue();
         int shortText = claim.getDescription().length() < 25 ? 25 : 0;
         claim.setFraudScore(Math.min(100, ratio + shortText));
+        claim.setProposal(null);
         claim.setFraudReason("[rules] The amount is " + ratio + "% of the coverage" + (shortText > 0 ? " and the description is very short" : "") + ". " + note);
         claim.setStatus(ClaimStatus.UNDER_REVIEW);
         claims.save(claim);
@@ -129,12 +130,13 @@ public class ClaimService {
 
     /** The fraud agent's result: score and reason on the claim; a claim that was only submitted moves to review. */
     @Audited
-    public void applyVerdict(long id, int score, String reason) {
+    public void applyVerdict(long id, int score, String reason, String proposal) {
         Claim claim = get(id);
         if (!claim.getStatus().isOpen()) return;
         ClaimStatus before = claim.getStatus();
         claim.setFraudScore(Math.max(0, Math.min(100, score)));
         claim.setFraudReason(reason.length() > 1000 ? reason.substring(0, 1000) : reason);
+        claim.setProposal(proposal);
         claim.setStatus(ClaimStatus.UNDER_REVIEW);
         claims.save(claim);
         if (before == ClaimStatus.SUBMITTED) publish(id, before, ClaimStatus.UNDER_REVIEW);
@@ -150,6 +152,15 @@ public class ClaimService {
             claim = get(id);
         }
         claim.setFraudReason("Fraud agent failed (" + why + "), the rule-based score stays");
+        claims.save(claim);
+    }
+
+    /** An adjuster booked the proposed appointment: the proposal is used up and the claim says where the booking is. */
+    @Audited
+    public void proposalBooked(long id, String appointmentNumber) {
+        Claim claim = get(id);
+        claim.setProposal(null);
+        claim.setFraudReason(claim.getFraudReason() + " Booked " + appointmentNumber + " in the Duck Physical Therapy Clinic.");
         claims.save(claim);
     }
 

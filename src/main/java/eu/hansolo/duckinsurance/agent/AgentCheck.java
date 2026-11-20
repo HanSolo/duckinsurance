@@ -33,6 +33,8 @@ public class AgentCheck {
     @Inject
     private ClinicClient             clinic;
     @Inject
+    private PhysioClient             physio;
+    @Inject
     private Event<ClaimCheckRequest> requests;
 
 
@@ -41,16 +43,17 @@ public class AgentCheck {
     }
 
     /**
-     * @return true if the agent was started; false if the DuckClinic is not reachable and the claim got the rule-based check instead
+     * @return true if the agent was started; false if no clinic is reachable and the claim got the rule-based check instead
      * @throws DomainException if the claim cannot be checked
      */
     public boolean start(long claimId) {
         if (!enabled()) throw DomainException.conflict("The fraud agent is switched off (DUCK_FRAUD_AGENT=off)");
         var claim = claims.get(claimId);
         if (!claim.getStatus().isOpen()) throw DomainException.conflict("Claim is already " + claim.getStatus());
-        if (policies.get(claim.getPolicyId()).getType() != PolicyType.VET_CARE) throw DomainException.conflict("The clinic can only confirm vet-care claims");
-        if (!clinic.check().state().equals("ok")) {
-            claims.ruleCheck(claimId, "The DuckClinic is not reachable, so only the rules were applied.");
+        var type = policies.get(claim.getPolicyId()).getType();
+        if (type != PolicyType.VET_CARE && type != PolicyType.PHYSIO) throw DomainException.conflict("The clinics can only confirm vet-care and physiotherapy claims");
+        if (!clinic.check().state().equals("ok") && !physio.check().state().equals("ok")) {
+            claims.ruleCheck(claimId, "The clinics are not reachable, so only the rules were applied.");
             return false;
         }
         claims.markChecking(claimId);

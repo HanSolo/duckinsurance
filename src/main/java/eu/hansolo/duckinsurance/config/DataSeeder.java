@@ -70,6 +70,8 @@ public class DataSeeder {
         policies.issue(waddles.getId(), PolicyType.LIFE, new BigDecimal("2000"), today.minusDays(300));
         Policy billVet = policies.issue(bill.getId(), PolicyType.VET_CARE, new BigDecimal("4000"), today.minusDays(45));
         Policy quixoteVet = policies.issue(donQuixote.getId(), PolicyType.VET_CARE, new BigDecimal("8000"), today.minusDays(150));
+        Policy sirQuacksalotPhysio = policies.issue(sirQuacksalot.getId(), PolicyType.PHYSIO, new BigDecimal("2500"), today.minusDays(100));
+        Policy duchessPhysio = policies.issue(duchess.getId(), PolicyType.PHYSIO, new BigDecimal("3000"), today.minusDays(100));
         Policy duckyLiability = policies.issue(duckyMcDuckface.getId(), PolicyType.LIABILITY, new BigDecimal("50000"), today.minusDays(20));
         Policy admiralCoop = policies.issue(admiralBeak.getId(), PolicyType.COOP, new BigDecimal("15000"), today.minusDays(60));
         policies.issue(puddles.getId(), PolicyType.LIFE, new BigDecimal("1500"), today.minusDays(60));
@@ -78,6 +80,9 @@ public class DataSeeder {
         Claim pipe = claimService.submit(admiralCoop.getId(), "Burst pipe flooded the coop and the pump house of the duck pond", new BigDecimal("6500"), today.minusDays(25), null);
         claimService.submit(billVet.getId(), "Bumblefoot treatment and follow-up foot baths after a pond incident", new BigDecimal("650"), today.minusDays(10), pip.getId());
         claimService.submit(duckyLiability.getId(), "Noise complaint", new BigDecimal("40000"), today.minusDays(3), null);
+        // Physiotherapy: the physical therapy clinic has a past appointment for Sir Quacksalot (see duck-physio-patch), nothing for Duchess
+        claimService.submit(sirQuacksalotPhysio.getId(), "Underwater treadmill sessions after the hook surgery", new BigDecimal("240"), today.minusDays(28), null);
+        claimService.submit(duchessPhysio.getId(), "Six hydrotherapy sessions after a leg strain", new BigDecimal("510"), today.minusDays(18), null);
         claimService.submit(quixoteVet.getId(), "Wing fracture surgery and physiotherapy for an elderly Muscovy", new BigDecimal("3400"), today.minusDays(30), mabel.getId());
 
         // Two historic decisions, written directly so that seeding does not depend on the caller's role
