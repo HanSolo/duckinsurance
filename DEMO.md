@@ -155,6 +155,21 @@ Needs the DuckClinic running with the demo data (`duck-clinic-patch/`). Open **C
 
 "An agent in plain Jakarta EE: a CDI event, four annotated methods, and it talks to another application through MCP."
 
+## 10. Optional: three agents, one referral (4 minutes)
+
+Needs all three applications and the same Ollama model: DuckInsurance (8081), the DuckClinic (8080) and the Duck Physical Therapy Clinic (8082). Each has its own agent, its own policy file and its own hard limits. Open **Agents** in the sidebar (admin or adjuster). Three dots show which applications answer.
+
+1. Press **Start referral for Sir Quacksalot**. The **Clinic Agent** looks at his visits (the fishing hook surgery 40 days ago), asks the model whether physiotherapy makes sense, and hands a referral to the **Therapy Agent**. It shares only the diagnosis and the number of sessions.
+2. The Therapy Agent picks a treatment and finds free slots (code), then asks the **Insurance Agent**: "will you pay?". The insurer's rules say a referral document is required, so it answers *I cannot decide yet*. The Therapy Agent does not have the document: it asks the Clinic Agent, which releases it because the owner consented. Then it asks the insurer again.
+3. The Insurance Agent computes the limits in code (remaining coverage of the PHYSIO policy, at most 6 sessions, at most 75 EUR per session) and lets the model decide inside them. Hydrotherapy costs 85 EUR, so expect **PARTIAL**: all sessions, but 75 EUR each, and the owner pays the difference. A cheaper treatment is approved in full.
+4. Only the approved sessions are booked. The Clinic Agent notes the status **SCHEDULED**.
+5. Press **Complete next session** a few times. After each session the Therapy Agent bills the insurer, which files a claim (visible under Claims) and starts the fraud agent of step 9. The fraud agent asks the clinics whether the visit happened.
+6. **Reset conversation** clears the logs and pre-authorizations, so you can run it again. Visits, appointments and claims stay (see "Known limits" in README).
+
+Grey lines are what an agent considered (thoughts and rules). Coloured edges show which application wrote the line.
+
+*Under the hood:* `agent/PreauthAgent` (Jakarta Agentic AI, same pattern as `ClaimFraudAgent`), `mcp/PartnerTools` (the tools the clinics' agents call), `agent/PreauthPolicy` and `resources/policies/insurer-agent-policy.md` (limits in code and in words), `security/AgentAccess` (role AGENT for the clinics' agents), `rest/AgentResource` and `app/agents.xhtml` (the page).
+
 ---
 
 ## Cheat sheet

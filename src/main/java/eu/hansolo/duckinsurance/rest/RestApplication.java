@@ -21,6 +21,6 @@ public class RestApplication extends Application {
 
     @Override
     public Set<Class<?>> getClasses() {
-        return Set.of(ClaimResource.class, CustomerResource.class, DuckResource.class, PolicyResource.class, StatsResource.class, VetResource.class, DomainExceptionMapper.class, McpResource.class);
+        return Set.of(AgentResource.class, ClaimResource.class, CustomerResource.class, DuckResource.class, PolicyResource.class, StatsResource.class, VetResource.class, DomainExceptionMapper.class, McpResource.class);
     }
 }

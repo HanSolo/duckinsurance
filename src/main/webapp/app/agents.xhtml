@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<ui:composition xmlns="http://www.w3.org/1999/xhtml"
+                xmlns:h="jakarta.faces.html"
+                xmlns:f="jakarta.faces.core"
+                xmlns:ui="jakarta.faces.facelets"
+                template="/WEB-INF/templates/layout.xhtml">
+
+    <ui:define name="title">Agents</ui:define>
+    <ui:define name="heading">Agents</ui:define>
+    <ui:define name="specs">
+        <span>Jakarta Agentic AI</span><span>MCP client</span><span>MCP server</span>
+    </ui:define>
+
+    <ui:define name="content">
+        <section class="card">
+            <p class="muted">Three applications, three agents, one referral. Start it and watch the agents talk: the DuckClinic refers the duck, the physical therapy clinic plans the sessions and asks DuckInsurance for pre-authorization, and DuckInsurance answers with its own rules. Each line is tagged with the application that wrote it. Thoughts and rules (grey) are what the agent considered before it spoke.</p>
+            <div class="agent-bar">
+                <button type="button" class="btn primary" id="start">Start referral for Sir Quacksalot</button>
+                <button type="button" class="btn" id="complete">Complete next session</button>
+                <button type="button" class="btn ghost" id="reset">Reset conversation</button>
+                <span class="spacer"></span>
+                <label class="muted"><input type="checkbox" id="auto" checked="checked"/> refresh every 2 s</label>
+            </div>
+            <div class="agent-status" id="status"><span class="muted">Checking…</span></div>
+            <div class="legend"><span><i style="background:#60a5fa"></i>DuckClinic</span><span><i style="background:#34d399"></i>Physical therapy clinic</span><span><i style="background:#fbbf24"></i>DuckInsurance</span></div>
+            <div id="notice" class="muted" style="margin-top:8px"></div>
+        </section>
+
+        <div class="agent-grid">
+            <section class="card">
+                <h2>Conversation</h2>
+                <div class="conv" id="conv"><p class="muted">Nothing yet. Press <em>Start referral</em>.</p></div>
+            </section>
+            <section class="card">
+                <h2>Referrals</h2>
+                <ul class="side-list" id="referrals"><li class="muted">none</li></ul>
+                <h2 style="margin-top:18px">Pre-authorizations</h2>
+                <ul class="side-list" id="preauths"><li class="muted">none</li></ul>
+            </section>
+        </div>
+
+        <script>
+            //<![CDATA[
+            (function () {
+                var base = '#{facesContext.externalContext.requestContextPath}/api/agent';
+                var lastCount = 0;
+                var lastReferral = null;
+                var css = { DuckClinic: 'clinic', PhysicalTherapy: 'physio', DuckInsurance: 'insurer' };
+
+                function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
+                function notice(text, bad) { var n = document.getElementById('notice'); n.textContent = text || ''; n.style.color = bad ? 'var(--bad)' : ''; }
+                function dot(ok, label) { var s = el('span'); s.appendChild(el('span', 'dot ' + (ok ? 'ok' : 'warn'))); s.appendChild(document.createTextNode(label + (ok ? '' : ' not reachable'))); return s; }
+
+                function render(data) {
+                    var st = document.getElementById('status'); st.textContent = '';
+                    st.appendChild(dot(data.clinicReachable, 'DuckClinic')); st.appendChild(dot(data.physioReachable, 'Physical therapy clinic')); st.appendChild(dot(true, 'DuckInsurance'));
+
+                    var conv = document.getElementById('conv');
+                    var atBottom = conv.scrollTop + conv.clientHeight >= conv.scrollHeight - 40;
+                    if (data.entries.length !== lastCount) {
+                        conv.textContent = '';
+                        if (data.entries.length === 0) conv.appendChild(el('p', 'muted', 'Nothing yet. Press Start referral.'));
+                        data.entries.forEach(function (e) {
+                            var m = el('div', 'msg ' + (css[e.app] || '') + ' ' + e.kind);
+                            var head = el('div', 'head');
+                            head.appendChild(el('span', 'who', e.from + (e.to ? ' → ' + e.to : '')));
+                            head.appendChild(el('span', 'kind ' + e.kind, e.kind));
+                            if (e.referralId) head.appendChild(el('span', '', e.referralId));
+                            head.appendChild(el('span', '', new Date(e.at).toLocaleTimeString()));
+                            m.appendChild(head); m.appendChild(el('div', 'body', e.text));
+                            conv.appendChild(m);
+                            if (e.referralId) lastReferral = e.referralId;
+                        });
+                        if (atBottom || lastCount === 0) conv.scrollTop = conv.scrollHeight;
+                        lastCount = data.entries.length;
+                    }
+
+                    var r = document.getElementById('referrals'); r.textContent = '';
+                    if (data.referrals.length === 0) r.appendChild(el('li', 'muted', 'none'));
+                    data.referrals.forEach(function (x) { var li = el('li'); li.appendChild(el('strong', '', x.referralId + ' ')); li.appendChild(document.createTextNode(x.duckName + ': ' + x.status)); if (x.message) li.appendChild(el('div', 'muted', x.message)); r.appendChild(li); lastReferral = x.referralId; });
+                    var p = document.getElementById('preauths'); p.textContent = '';
+                    if (data.preauthorizations.length === 0) p.appendChild(el('li', 'muted', 'none'));
+                    data.preauthorizations.forEach(function (x) { var li = el('li'); li.appendChild(el('strong', '', x.reference + ' ')); li.appendChild(document.createTextNode(x.referralId + ': ' + x.status + ', ' + x.claimedSessions + ' of ' + x.approvedSessions + ' sessions claimed (' + x.approvedTotal + ' EUR)')); p.appendChild(li); });
+                }
+
+                function refresh() {
+                    fetch(base + '/timeline', { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(render).catch(function (e) { notice('Could not read the timeline: ' + e.message, true); });
+                }
+                function post(path, ok) {
+                    fetch(base + path, { method: 'POST', credentials: 'same-origin' }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)); notice(ok(j)); refresh(); }); }).catch(function (e) { notice(e.message, true); });
+                }
+                document.getElementById('start').onclick = function () { notice('Starting…'); post('/referrals', function () { return 'The clinic agent is working. The model needs a moment, the conversation fills in as it goes.'; }); };
+                document.getElementById('complete').onclick = function () { if (!lastReferral) { notice('There is no referral yet.', true); return; } post('/complete-session?referralId=' + encodeURIComponent(lastReferral), function (j) { return j.message || 'Session completed, the therapy clinic agent bills the insurer.'; }); };
+                document.getElementById('reset').onclick = function () { fetch(base + '/log', { method: 'DELETE', credentials: 'same-origin' }).then(function () { lastCount = -1; lastReferral = null; notice('Conversation cleared. Data (claims, appointments, visits) was not changed.'); refresh(); }); };
+                refresh();
+                setInterval(function () { if (document.getElementById('auto').checked) refresh(); }, 2000);
+            })();
+            //]]>
+        </script>
+    </ui:define>
+</ui:composition>

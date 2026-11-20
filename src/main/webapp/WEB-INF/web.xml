@@ -54,4 +54,7 @@
     <security-role>
         <role-name>CUSTOMER</role-name>
     </security-role>
+    <security-role>
+        <role-name>AGENT</role-name>
+    </security-role>
 </web-app>

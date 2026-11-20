@@ -24,6 +24,7 @@
                 <h:link outcome="/app/claims" value="Claims"/>
                 <h:link outcome="/app/vets" value="Vets"/>
                 <h:link outcome="/app/chat" value="Assistant"/>
+                <h:link outcome="/app/agents" value="Agents" rendered="#{facesContext.externalContext.isUserInRole('ADMIN') or facesContext.externalContext.isUserInRole('ADJUSTER')}"/>
                 <a href="#{facesContext.externalContext.requestContextPath}/openapi" target="_blank">OpenAPI ↗</a>
             </nav>
             <div class="sidebar-foot">

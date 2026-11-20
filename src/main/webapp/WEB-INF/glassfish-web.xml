@@ -15,4 +15,8 @@
         <role-name>CUSTOMER</role-name>
         <group-name>CUSTOMER</group-name>
     </security-role-mapping>
+    <security-role-mapping>
+        <role-name>AGENT</role-name>
+        <group-name>AGENT</group-name>
+    </security-role-mapping>
 </glassfish-web-app>
