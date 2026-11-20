@@ -11,6 +11,11 @@ Read README-agents.md first (design, tools, run). This file says what was verifi
 - [Certain] The therapy clinic's agent code compiles against stubs of the framework annotations and the real records of the project, and ran end to end against mock servers: model answer with a think block, `NEEDS_INFO` then document then `PARTIAL`, booking only the approved sessions, billing after each session, both result formats (structured content and JSON text).
 - [Certain] The new Java files of the two Payara projects have no syntax errors (javac parse phase). Types were not checked.
 
+## Multi round-trip (added after the first delivery)
+- Insurer `request_preauthorization` asks for `referralDocument` with `input_required`; clinic `get_referral_document` asks "confirm the release?". The therapy agent's `McpCaller` answers both with an input handler. State is signed with `McpRequestStates` as in `DuckTools.confirm` and the clinic's `book_visit`.
+- [Certain] The client side was tested against a mock that follows the wire format of the vendored client (capability `elicitation.form` declared, `inputResponses` and `requestState` repeated, nested question).
+- [Guessing] **The text field of the server library.** `mcp/DocumentForm` calls `Elicitation.form(msg).string(KEY, p -> p.title(..).required())` and `answer.string(KEY)`. Only `.bool(..)` and `answer.bool(..)` appear in the existing code. If the library names them differently (`text`, `getString`, ...), the build fails in this one file; fix those two lines.
+
 ## Not verified (no Maven Central, no Ollama, no containers in the chat workspace)
 - [Certain] None of the three projects was built with Maven, none was started.
 - [Likely] Needs a look when you first build: the Jakarta Agentic AI M1 API in the DuckClinic (same imports as `ClaimFraudAgent`), `@Resource ManagedExecutorService` in `ReferralService`, `int` and `double` tool parameters in `PartnerTools` (the library's other tools use `long`, `double`, `boolean`), `Event.fire` returning only after the agent workflow finished and rethrowing its exception (the insurer's `AgentCheck` assumes the same).

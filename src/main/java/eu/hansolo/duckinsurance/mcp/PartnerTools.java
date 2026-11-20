@@ -8,10 +8,14 @@ import eu.hansolo.duckinsurance.agent.PreauthStore;
 import eu.hansolo.duckinsurance.domain.Claim;
 import eu.hansolo.duckinsurance.domain.DomainException;
 import eu.hansolo.duckinsurance.service.ClaimService;
+import eu.hansolo.mcp.api.Elicitation;
+import eu.hansolo.mcp.api.InputRequests;
 import eu.hansolo.mcp.api.McpParam;
 import eu.hansolo.mcp.api.McpTool;
+import eu.hansolo.mcp.api.ToolCall;
 import eu.hansolo.mcp.api.ToolExecutionException;
 import eu.hansolo.mcp.api.ToolResult;
+import eu.hansolo.mcp.server.McpRequestStates;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
@@ -36,7 +40,8 @@ import java.util.logging.Logger;
  */
 @ApplicationScoped
 public class PartnerTools {
-    private static final Logger LOG = Logger.getLogger(PartnerTools.class.getName());
+    private static final Logger LOG          = Logger.getLogger(PartnerTools.class.getName());
+    private static final int    MAX_DOCUMENT = 8000;
 
     @Inject
     private Event<PreauthRequest> requests;
@@ -50,24 +55,51 @@ public class PartnerTools {
     private AgentCheck            check;
     @Inject
     private SecurityContext       security;
+    @Inject
+    private McpRequestStates      states;
 
 
-    @McpTool(name = "request_preauthorization", description = "A clinic asks whether DuckInsurance will pay for a treatment plan. The insurer's agent answers APPROVED, PARTIAL (fewer sessions or a lower amount per session), DENIED, or NEEDS_INFO with a list of what is missing (for example referralDocument): then ask again with the missing information. Takes up to a minute because a language model decides.", destructiveHint = McpTool.Hint.FALSE)
-    public ToolResult requestPreauthorization(@McpParam(description = "Referral id that all institutions carry, like REF-0001") String referralId, @McpParam(description = "Last name of the duck's owner") String ownerLastName, @McpParam(description = "Name of the duck") String duckName, @McpParam(description = "Name of the clinic that asks") String provider, @McpParam(description = "Name of the planned treatment") String treatmentName, @McpParam(description = "Diagnosis in one or two sentences") String diagnosis, @McpParam(description = "Number of planned sessions") int sessions, @McpParam(description = "Price per session in euro") double pricePerSession, @McpParam(description = "Date of the first session, 2026-12-01") String firstSession, @McpParam(description = "The veterinary referral document. Send it only when the insurer asks for it") Optional<String> referralDocument) {
+    @McpTool(name = "request_preauthorization", description = "A clinic asks whether DuckInsurance will pay for a treatment plan. The insurer's agent answers APPROVED, PARTIAL (fewer sessions or a lower amount per session) or DENIED. If it needs the veterinary referral document it asks for it inside the same call (MCP input_required, a form with the field referralDocument): do not send the document up front, answer the question. A client that cannot be asked gets NEEDS_INFO with a list of what is missing, and calls again with the argument referralDocument. Takes up to a minute because a language model decides.", destructiveHint = McpTool.Hint.FALSE)
+    public ToolResult requestPreauthorization(@McpParam(description = "Referral id that all institutions carry, like REF-0001") String referralId, @McpParam(description = "Last name of the duck's owner") String ownerLastName, @McpParam(description = "Name of the duck") String duckName, @McpParam(description = "Name of the clinic that asks") String provider, @McpParam(description = "Name of the planned treatment") String treatmentName, @McpParam(description = "Diagnosis in one or two sentences") String diagnosis, @McpParam(description = "Number of planned sessions") int sessions, @McpParam(description = "Price per session in euro") double pricePerSession, @McpParam(description = "Date of the first session, 2026-12-01") String firstSession, @McpParam(description = "The veterinary referral document. Leave it out: the insurer asks for it if it needs it") Optional<String> referralDocument, ToolCall call) {
         requireAgent();
         if (sessions < 1 || pricePerSession <= 0) throw new ToolExecutionException("sessions and pricePerSession must be positive");
+        // What the question is about: it is signed into the request state, so the retry cannot change the request after the insurer asked
+        String arguments = String.join("|", referralId, ownerLastName, duckName, provider, treatmentName, diagnosis, String.valueOf(sessions), String.valueOf(pricePerSession), firstSession);
+        String context   = "request_preauthorization|" + call.caller().subject();
+        String document  = referralDocument.orElse(null);
+
+        Optional<Elicitation.Answer> answer = Elicitation.answer(call.inputResponses(), DocumentForm.KEY);
+        if (document == null && answer.isPresent()) {
+            // -32602 if the state is missing, altered, expired or was issued for another tool or caller
+            if (!arguments.equals(states.require(call.requestState(), context))) throw new ToolExecutionException("The request changed after the insurer asked for the referral document. Please ask again.");
+            if (answer.get().accepted() && DocumentForm.form("").problems(answer.get()).isEmpty()) {
+                document = DocumentForm.read(answer.get()).orElse(null);
+                if (document != null && document.length() > MAX_DOCUMENT) throw new ToolExecutionException("The referral document is longer than " + MAX_DOCUMENT + " characters");
+                log.say(referralId, null, "THOUGHT", "Received the referral document in answer to my question (" + (document == null ? 0 : document.length()) + " characters).");
+            } else {
+                log.say(referralId, provider, "ANSWER", "You declined to send the referral document, so I cannot decide.");
+            }
+        }
+
         String correlation = UUID.randomUUID().toString();
-        PreauthRequest request = new PreauthRequest(correlation, referralId, ownerLastName, duckName, provider, treatmentName, diagnosis, sessions, BigDecimal.valueOf(pricePerSession), date(firstSession), referralDocument.orElse(null));
+        PreauthRequest request = new PreauthRequest(correlation, referralId, ownerLastName, duckName, provider, treatmentName, diagnosis, sessions, BigDecimal.valueOf(pricePerSession), date(firstSession), document);
         try {
             requests.fire(request);
         } catch (RuntimeException e) {
             LOG.log(Level.WARNING, "Pre-authorization workflow failed", e);
             throw new ToolExecutionException("The insurer's agent failed: " + e.getMessage());
         }
-        PreauthAnswer answer = store.takeAnswer(correlation);
-        if (answer == null || answer.status().equals("ERROR")) throw new ToolExecutionException("The insurer's agent gave no answer");
+        PreauthAnswer result = store.takeAnswer(correlation);
+        if (result == null || result.status().equals("ERROR")) throw new ToolExecutionException("The insurer's agent gave no answer");
+
+        boolean missingDocument = result.status().equals("NEEDS_INFO") && result.missing().contains(DocumentForm.KEY);
+        if (missingDocument && answer.isEmpty() && call.clientSupports("elicitation")) {
+            // Ask inside this call instead of ending it: the caller answers and repeats the call with the answer and the signed state
+            log.say(referralId, provider, "REQUEST", "Please send me the referral document. I ask inside this call (MCP input_required), you do not have to start over.");
+            return ToolResult.ask(InputRequests.of(DocumentForm.KEY, DocumentForm.form(result.reason())), states.sign(arguments, context));
+        }
         PreauthStore.Preauth saved = store.get(referralId);
-        return ToolResult.structured(json(answer, saved == null || answer.status().equals("NEEDS_INFO") ? null : saved.reference()));
+        return ToolResult.structured(json(result, saved == null || result.status().equals("NEEDS_INFO") ? null : saved.reference()));
     }
 
     @McpTool(name = "submit_provider_claim", description = "A clinic bills one completed session of a pre-authorized treatment. The insurer files a claim against the policy (at most the pre-authorized amount per session) and starts its fraud check, which may ask the clinic to confirm the visit.", destructiveHint = McpTool.Hint.FALSE)
