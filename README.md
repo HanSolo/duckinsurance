@@ -13,7 +13,7 @@ mvn package
 java -jar payara-micro.jar --deploy target/duckinsurance.war
 ```
 
-Open <http://localhost:8080> and sign in:
+Open <http://localhost:8081> and sign in:
 
 | User       | Password   | Role     | Can do                                   |
 |------------|------------|----------|------------------------------------------|
@@ -50,12 +50,12 @@ An editor such as Swagger UI or Postman can import that URL. Use HTTP Basic with
 
 
 ```bash
-curl -u admin:admin http://localhost:8080/api/customers
-curl -u admin:admin http://localhost:8080/api/policies/quote -H 'Content-Type: application/json' \
+curl -u admin:admin http://localhost:8081/api/customers
+curl -u admin:admin http://localhost:8081/api/policies/quote -H 'Content-Type: application/json' \
      -d '{"duckId":1,"type":"VET_CARE","coverageAmount":5000}'
-curl -u customer:customer http://localhost:8080/api/claims -H 'Content-Type: application/json' \
+curl -u customer:customer http://localhost:8081/api/claims -H 'Content-Type: application/json' \
      -d '{"policyId":1,"vetId":1,"description":"Sir Quacksalot swallowed a bread bag clip","amount":600,"incidentDate":"2026-10-01"}'
-curl -u adjuster:adjuster http://localhost:8080/api/claims/3/decision -H 'Content-Type: application/json' \
+curl -u adjuster:adjuster http://localhost:8081/api/claims/3/decision -H 'Content-Type: application/json' \
      -d '{"approve":true,"note":"ok"}'
 ```
 
@@ -74,7 +74,7 @@ Resources: `customers` (the owners), `customers/{id}/ducks`, `customers/{id}/pol
 
 The WAR contains the [Jakarta MCP server](https://github.com/HanSolo/jakarta-mcp-server) library (`eu.hansolo.mcp:mcp-jakarta:0.9.0`).
 `mcp/DuckTools` turns the CDI services into 10 tools (`search_owners`, `list_ducks`, `list_vets`, `list_policies`, `quote_policy`,
-`issue_policy`, `list_claims`, `submit_claim`, `decide_claim`, `get_stats`). The endpoint is `http://localhost:8080/api/mcp` and uses the
+`issue_policy`, `list_claims`, `submit_claim`, `decide_claim`, `get_stats`). The endpoint is `http://localhost:8081/api/mcp` and uses the
 application's own login (HTTP Basic), so roles apply: `customer` cannot decide claims, `adjuster` and `admin` can.
 
 The server speaks only MCP revision **2026-07-28** (no `initialize` handshake). Clients that still need the handshake are refused with HTTP 400.
@@ -84,8 +84,8 @@ The server speaks only MCP revision **2026-07-28** (no `initialize` handshake). 
 The sidebar entry **Assistant** is a chat page. It uses the [Jakarta MCP client](https://github.com/HanSolo/jakarta-mcp-client) (vendored in `third-party/`, because 0.1.0 is not on Maven Central yet;
 the Dockerfile installs it before the build) to read the tools from `/api/mcp` and runs a tool-calling loop (`chat/AgentLoop`) against a model. The client sends a short-lived signed token (`security/InternalTokens`, HMAC, 2 minutes, accepted by `AppAuthMechanism` as a Bearer token) for the logged-in user,
 so the assistant acts with that user's role. The model defaults to an Ollama on the host (`http://host.docker.internal:11434`, model `qwen3.8:27b`); Ollama speaks the Anthropic Messages API since 0.14. On Linux, Ollama must listen on more than loopback for the container to reach it (`OLLAMA_HOST=0.0.0.0`); Docker Desktop needs nothing.
-Settings (environment of the `duckinsurance` service): `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `AGENT_MAX_ROUNDS`; for Claude use `https://api.anthropic.com`, a real key and a Claude model name.
-`MCP_SELF_URL` overrides the endpoint the page calls (default `http://localhost:8080/api/mcp`).
+Settings: see **Configuring the model** below (`llm.env`).
+`MCP_SELF_URL` overrides the endpoint the page calls (default `http://localhost:8080/api/mcp`, the port inside the container).
 
 **Streaming:** the answer is requested with `stream: true` (server-sent events) and appears while the model writes. The question runs on a background thread, the page polls every 600 ms. A Stop button cancels the run.
 Needs Ollama 0.14 or newer (`ollama --version`).
@@ -104,3 +104,25 @@ MCP_USER=adjuster node scripts/duckchat.mjs "Approve the open claim of Don Quixo
 
 `scripts/duckchat.mjs` is a small bridge: it reads the tool list over MCP, hands it to Ollama's `/api/chat`, runs the tool calls the model asks for and feeds the results back.
 If Ollama runs on the host instead of in Docker, nothing changes (default `http://localhost:11434`).
+
+## Configuring the model (`llm.env`)
+
+The model settings of the Assistant are not in the code. Copy `llm.env.example` to `llm.env` (next to `compose.yaml`); Docker Compose loads it into the container's environment (`env_file`) at every start.
+Edit it and run `docker compose up -d`; no rebuild is needed. Without the file the defaults apply (Ollama on the host, `qwen3.8:27b`). The application reads its settings with **MicroProfile Config** (`config/AppConfig`), the usual way for Jakarta EE applications:
+sources are system properties (`-D`), environment variables, and `META-INF/microprofile-config.properties`. That also works without Docker: set the same names as environment variables or `-D` properties on the server. `llm.env` is in `.gitignore` because it can hold an API key.
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `LLM_BASE_URL` | model server | Ollama on the host, `http://host.docker.internal:11434` |
+| `LLM_MODEL` | model name | `qwen3.8:27b` |
+| `LLM_API_KEY` | key (any text for Ollama) | `ollama` |
+| `ANTHROPIC_MAX_TOKENS`, `AGENT_MAX_ROUNDS` | optional limits | 1024, 8 |
+| `DUCK_CONFIRM_WRITES`, `MCP_SELF_URL` | see `compose.yaml` | |
+
+The older `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` still work.
+
+**Using a cloud model:** set `LLM_BASE_URL=https://api.anthropic.com`, your key and a Claude model name in `llm.env`. The client speaks the Anthropic Messages API; other vendors only work through an endpoint with the same API.
+
+## Port
+
+DuckInsurance is published on host port **8081** (`DUCKINSURANCE_PORT` in `.env`); the container itself listens on 8080.

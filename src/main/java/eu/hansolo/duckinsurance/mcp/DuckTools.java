@@ -1,5 +1,6 @@
 package eu.hansolo.duckinsurance.mcp;
 
+import eu.hansolo.duckinsurance.config.AppConfig;
 import eu.hansolo.duckinsurance.domain.Claim;
 import eu.hansolo.duckinsurance.domain.ClaimStatus;
 import eu.hansolo.duckinsurance.domain.Customer;
@@ -166,7 +167,7 @@ public class DuckTools {
      * @return null if the tool may go ahead, otherwise the result to return now
      */
     private ToolResult confirm(ToolCall call, String tool, String arguments, String message) {
-        String mode = Optional.ofNullable(System.getenv("DUCK_CONFIRM_WRITES")).map(String::trim).orElse("if-supported");
+        String mode = AppConfig.get("DUCK_CONFIRM_WRITES", "if-supported");
         if (mode.equals("off")) return null;
         String context = tool + "|" + call.caller().subject();
         Optional<Elicitation.Answer> answer = Elicitation.answer(call.inputResponses(), "confirm");

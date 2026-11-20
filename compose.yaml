@@ -2,14 +2,14 @@ services:
   duckinsurance:
     build: .
     ports:
-      - "8080:8080"   # application, REST API (/api) and MCP endpoint (/api/mcp)
+      - "${DUCKINSURANCE_PORT:-8081}:8080"   # application, REST API (/api) and MCP endpoint (/api/mcp); host port from .env
       - "4848:4848"   # Payara admin console (optional)
+    # Model settings of the Assistant live in llm.env (copy llm.env.example); edit it and run 'docker compose up -d' again. Needs Docker Compose 2.24 or newer for 'required: false'.
+    env_file:
+      - path: llm.env
+        required: false
     extra_hosts:
       - "host.docker.internal:host-gateway"   # reach Ollama on the host (needed on Linux, harmless elsewhere)
     environment:
-      # The Assistant page talks to Ollama on the host. For Claude: ANTHROPIC_BASE_URL=https://api.anthropic.com, a real key and model name.
-      ANTHROPIC_BASE_URL: http://host.docker.internal:11434
-      ANTHROPIC_API_KEY: ollama
-      ANTHROPIC_MODEL: qwen3.8:27b
       # Ask the user before a tool changes data: if-supported (default), always, off
       DUCK_CONFIRM_WRITES: if-supported

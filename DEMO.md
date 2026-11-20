@@ -5,7 +5,7 @@
 
 ## Before you start (5 minutes, do this before the audience arrives)
 
-1. **Start the app:** `docker compose up --build` in the project folder. The first build takes a few minutes. It is ready when the log shows the application as deployed. Open <http://localhost:8080>.
+1. **Start the app:** `docker compose up --build` in the project folder. The first build takes a few minutes. It is ready when the log shows the application as deployed. Open <http://localhost:8081>.
 2. **Sign in:** `admin/admin`, `customer/customer`, `adjuster/adjuster`. Use two browser profiles (or a private window) so you can switch between roles quickly.
 3. **Only for step 8 (Assistant):** Ollama must run on your machine with the model pulled (`ollama pull qwen3.8:27b`, version 0.14 or newer). On Linux start it with `OLLAMA_HOST=0.0.0.0 ollama serve`, so the container can reach it; Docker Desktop needs nothing.
 4. **Check:** open **Assistant**. Both dots at the top should be green (model reachable, MCP endpoint reachable). Ask one question beforehand: the first answer loads the model and takes a while.
@@ -87,20 +87,20 @@ Also point at the two historic decisions already in the list: Sir Quacksalot's f
 
 ```bash
 # A customer tries to decide a claim: forbidden
-curl -i -u customer:customer -X POST http://localhost:8080/api/claims/3/decision \
+curl -i -u customer:customer -X POST http://localhost:8081/api/claims/3/decision \
      -H 'Content-Type: application/json' -d '{"approve":true,"note":"sneaky"}'
 
 # A quote for Ducky McDuckface (duck id 6), no side effects
-curl -u customer:customer http://localhost:8080/api/policies/quote \
+curl -u customer:customer http://localhost:8081/api/policies/quote \
      -H 'Content-Type: application/json' \
      -d '{"duckId":6,"type":"LIABILITY","coverageAmount":50000}'
 
 # Ducks of one owner, and the vets
-curl -u customer:customer "http://localhost:8080/api/ducks?ownerId=1"
-curl -u customer:customer http://localhost:8080/api/vets
+curl -u customer:customer "http://localhost:8081/api/ducks?ownerId=1"
+curl -u customer:customer http://localhost:8081/api/vets
 
 # The numbers behind the dashboard
-curl -u admin:admin http://localhost:8080/api/stats
+curl -u admin:admin http://localhost:8081/api/stats
 ```
 
 - First call returns **403** (`@RolesAllowed` on the REST resource). Read a real claim number off the Claims page if needed.
