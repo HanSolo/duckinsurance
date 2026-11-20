@@ -24,6 +24,6 @@ Read README-agents.md first (design, tools, run). This file says what was verifi
 - [Guessing] First answers from a 27b model take a while. The insurer's client timeout for pre-authorization is 240 s, the clinic's call to the therapy clinic returns at once.
 - The therapy clinic's earlier unverified items (Quarkus version pins, `ClinicTest`, the web UI) are still unverified.
 
-## Open
+## Open (full list in BACKLOG.md)
 - Policies are a first proposal (README-agents.md table, the three `*-agent-policy.md` files). Adjust the numbers in the policy file and in the matching class together.
 - Not done: Don Quixote storyline, a cancel operation, persistence of the agent state, authentication between the applications.
