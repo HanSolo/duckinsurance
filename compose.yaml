@@ -2,5 +2,5 @@ services:
   duckinsurance:
     build: .
     ports:
-      - "8080:8080"   # application
+      - "${DUCKINSURANCE_PORT:-8081}:8080"   # application (host port from .env)
       - "4848:4848"   # Payara admin console (optional)

@@ -3,7 +3,7 @@
 **Story:** It is a stormy Tuesday at DuckInsurance, a small insurer for ducks. You follow three people
 (an admin, a duck owner and a claims adjuster) and show Jakarta EE 11 at work underneath each step.
 
-Start the app (`docker compose up --build`), open <http://localhost:8080>. Demo accounts: `admin/admin`,
+Start the app (`docker compose up --build`), open <http://localhost:8081>. Demo accounts: `admin/admin`,
 `customer/customer`, `adjuster/adjuster`. Data is re-created on every restart, so you can always reset.
 
 The model follows the Duck-Clinic: **owners** have **ducks**, **vets** treat them. A **policy** insures one duck
@@ -82,20 +82,20 @@ Also point at the two historic decisions already in the list: Sir Quacksalot's f
 
 ```bash
 # A customer tries to decide a claim: forbidden
-curl -i -u customer:customer -X POST http://localhost:8080/api/claims/3/decision \
+curl -i -u customer:customer -X POST http://localhost:8081/api/claims/3/decision \
      -H 'Content-Type: application/json' -d '{"approve":true,"note":"sneaky"}'
 
 # A quote for Ducky McDuckface (duck id 6), no side effects
-curl -u customer:customer http://localhost:8080/api/policies/quote \
+curl -u customer:customer http://localhost:8081/api/policies/quote \
      -H 'Content-Type: application/json' \
      -d '{"duckId":6,"type":"LIABILITY","coverageAmount":50000}'
 
 # Ducks of one owner, and the vets
-curl -u customer:customer "http://localhost:8080/api/ducks?ownerId=1"
-curl -u customer:customer http://localhost:8080/api/vets
+curl -u customer:customer "http://localhost:8081/api/ducks?ownerId=1"
+curl -u customer:customer http://localhost:8081/api/vets
 
 # The numbers behind the dashboard
-curl -u admin:admin http://localhost:8080/api/stats
+curl -u admin:admin http://localhost:8081/api/stats
 ```
 
 - First call returns **403** (`@RolesAllowed` on the REST resource). Read a real claim number off the Claims page if needed.

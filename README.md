@@ -13,7 +13,7 @@ mvn package
 java -jar payara-micro.jar --deploy target/duckinsurance.war
 ```
 
-Open <http://localhost:8080> and sign in:
+Open <http://localhost:8081> and sign in:
 
 | User       | Password   | Role     | Can do                                   |
 |------------|------------|----------|------------------------------------------|
@@ -48,12 +48,12 @@ A 15-minute walkthrough with a story is in [DEMO.md](DEMO.md).
 All endpoints under `/api`, HTTP Basic or session cookie:
 
 ```bash
-curl -u admin:admin http://localhost:8080/api/customers
-curl -u admin:admin http://localhost:8080/api/policies/quote -H 'Content-Type: application/json' \
+curl -u admin:admin http://localhost:8081/api/customers
+curl -u admin:admin http://localhost:8081/api/policies/quote -H 'Content-Type: application/json' \
      -d '{"duckId":1,"type":"VET_CARE","coverageAmount":5000}'
-curl -u customer:customer http://localhost:8080/api/claims -H 'Content-Type: application/json' \
+curl -u customer:customer http://localhost:8081/api/claims -H 'Content-Type: application/json' \
      -d '{"policyId":1,"vetId":1,"description":"Sir Quacksalot swallowed a bread bag clip","amount":600,"incidentDate":"2026-10-01"}'
-curl -u adjuster:adjuster http://localhost:8080/api/claims/3/decision -H 'Content-Type: application/json' \
+curl -u adjuster:adjuster http://localhost:8081/api/claims/3/decision -H 'Content-Type: application/json' \
      -d '{"approve":true,"note":"ok"}'
 ```
 
@@ -73,3 +73,7 @@ Resources: `customers` (the owners), `customers/{id}/ducks`, `customers/{id}/pol
 The REST API is the natural integration point. An MCP server can map each operation to a tool
 (`search_owners`, `list_ducks`, `quote_policy`, `submit_claim`, `decide_claim`, …) and authenticate with HTTP Basic.
 Adding MicroProfile OpenAPI annotations (`@Operation`, `@Parameter`) would give the tools good descriptions for free.
+
+## Port
+
+DuckInsurance is published on host port **8081** (`DUCKINSURANCE_PORT` in `.env`); the container itself listens on 8080.
