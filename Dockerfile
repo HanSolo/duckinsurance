@@ -2,8 +2,6 @@
 FROM azul/zulu-openjdk:21 AS build
 RUN apt-get update && apt-get install -y --no-install-recommends maven && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
-COPY third-party third-party
-RUN mvn -q -B -f third-party/mcp-jakarta-client/pom.xml install -Dmaven.test.skip=true
 COPY pom.xml .
 RUN mvn -q -B dependency:go-offline
 COPY src src

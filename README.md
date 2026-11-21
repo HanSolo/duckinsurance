@@ -82,8 +82,7 @@ The server speaks only MCP revision **2026-07-28** (no `initialize` handshake). 
 
 ### The Assistant page (MCP client inside the app)
 
-The sidebar entry **Assistant** is a chat page. It uses the [Jakarta MCP client](https://github.com/HanSolo/jakarta-mcp-client) (vendored in `third-party/`, because 0.1.0 is not on Maven Central yet;
-the Dockerfile installs it before the build) to read the tools from `/api/mcp` and runs a tool-calling loop (`chat/AgentLoop`) against a model. The client sends a short-lived signed token (`security/InternalTokens`, HMAC, 2 minutes, accepted by `AppAuthMechanism` as a Bearer token) for the logged-in user,
+The sidebar entry **Assistant** is a chat page. It uses the [Jakarta MCP client](https://github.com/HanSolo/jakarta-mcp-client) (`eu.hansolo.mcp:mcp-jakarta-client:0.3.0` from Maven Central) to read the tools from `/api/mcp` and runs a tool-calling loop (`chat/AgentLoop`) against a model. The client sends a short-lived signed token (`security/InternalTokens`, HMAC, 2 minutes, accepted by `AppAuthMechanism` as a Bearer token) for the logged-in user,
 so the assistant acts with that user's role. The model defaults to an Ollama on the host (`http://host.docker.internal:11434`, model `qwen3.8:27b`); Ollama speaks the Anthropic Messages API since 0.14. On Linux, Ollama must listen on more than loopback for the container to reach it (`OLLAMA_HOST=0.0.0.0`); Docker Desktop needs nothing.
 Settings: see **Configuring the model** below (`llm.env`).
 `MCP_SELF_URL` overrides the endpoint the page calls (default `http://localhost:8080/api/mcp`).

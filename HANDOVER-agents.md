@@ -3,7 +3,7 @@
 Read README-agents.md first (design, tools, run). This file says what was verified and what was not.
 
 ## Done
-- Duck clinic: `ReferralAgent`, referral store, REST `/referrals` and `/agent/log`, MCP tools `get_referral_document` and `report_referral_status`, policy file, MCP client vendored in `third-party/`, pom, Dockerfile, compose, `llm.env.example`, `beans.xml` now `bean-discovery-mode="all"`.
+- Duck clinic: `ReferralAgent`, referral store, REST `/referrals` and `/agent/log`, MCP tools `get_referral_document` and `report_referral_status`, policy file, MCP client `mcp-jakarta-client` (now 0.3.0 from Maven Central, was vendored), pom, Dockerfile, compose, `llm.env.example`, `beans.xml` now `bean-discovery-mode="all"`.
 - Therapy clinic: `TherapyAgent`, Ollama client, minimal MCP client, plan store, MCP tools `propose_treatment_plan`, `get_plan_status`, `complete_appointment`, REST `/api/agent/*`, `ClinicService.complete` and `isFree`, policy file, compose, Dockerfile.
 - DuckInsurance: `PreauthAgent`, `PreauthStore`, `PartnerTools`, role AGENT (`AgentAccess`), `AgentResource`, page `app/agents.xhtml`, DEMO.md section 10, compose settings.
 
@@ -13,7 +13,7 @@ Read README-agents.md first (design, tools, run). This file says what was verifi
 
 ## Multi round-trip (added after the first delivery)
 - Insurer `request_preauthorization` asks for `referralDocument` with `input_required`; clinic `get_referral_document` asks "confirm the release?". The therapy agent's `McpCaller` answers both with an input handler. State is signed with `McpRequestStates` as in `DuckTools.confirm` and the clinic's `book_visit`.
-- [Certain] The client side was tested against a mock that follows the wire format of the vendored client (capability `elicitation.form` declared, `inputResponses` and `requestState` repeated, nested question).
+- [Certain] The client side was tested against a mock that follows the wire format of the client (0.1.0 at that time) (capability `elicitation.form` declared, `inputResponses` and `requestState` repeated, nested question).
 - [Guessing] **The text field of the server library.** `mcp/DocumentForm` calls `Elicitation.form(msg).string(KEY, p -> p.title(..).required())` and `answer.string(KEY)`. Only `.bool(..)` and `answer.bool(..)` appear in the existing code. If the library names them differently (`text`, `getString`, ...), the build fails in this one file; fix those two lines.
 
 ## Not verified (no Maven Central, no Ollama, no containers in the chat workspace)

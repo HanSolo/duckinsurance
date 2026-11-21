@@ -13,7 +13,7 @@ State on 2026-11-21: the whole story runs on the three apps (refer, plan, docume
 Today: the insurer accepts `clinic-agent:SECRET` and `therapy-agent:SECRET` (role AGENT). The clinic's and the therapy clinic's MCP and REST endpoints have no authentication, the clinic's agent log and referral endpoints are open.
 - Step 1: the same shared bearer secret on the clinics' MCP endpoints and their `/agent` and `/referrals` REST endpoints, so only the agents (and the insurer's demo page) can call them.
 - Step 2: per-agent identities and scopes, so that for example only the therapy agent may call `get_referral_document` and only the clinic agent may call `cancel_referral`.
-- Step 3: OAuth client credentials. The vendored client already supports it (`oauthClientCredentials`), a token endpoint is needed. Replaces the shared secret.
+- Step 3: OAuth client credentials. The client already supports it (`oauthClientCredentials`), a token endpoint is needed. Replaces the shared secret.
 - Remember: the signed request state binds to the caller's subject (`call.caller().subject()`). With no authentication every caller is anonymous, so step 1 also makes that binding meaningful.
 
 ## 2. Cancel, remaining checks and gaps
