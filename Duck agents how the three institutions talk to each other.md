@@ -26,6 +26,10 @@ All three agents use the same local Ollama model and the same pattern. The clini
 
 Read it top to bottom. Solid arrows are calls, dashed arrows are replies, and the two highlighted replies are the insurer and the clinic asking back inside the same call before it can be answered. Messages 1 to 13 are the referral, from the vet's question to the first claim. Messages 14 to 18 are the cancellation after the first session.
 
+&#91;embedded content: architecture view · 3 institutions, 3 agents, 4 MCP calls\]
+
+The same system seen as architecture instead of conversation. Each institution is a closed box with its own agent, its own MCP server and client, and its own call to the local LLM. The four teal arrows are the only places where data crosses an institution boundary, and the tool name on each arrow says what is asked.
+
 ## The conversation step by step
 
 1. **Question.** The vet asks the Clinic Agent whether to refer the duck. The agent collects the facts (visits in the last 90 days, whether a referral is already open) and asks the model whether a referral makes sense and for how many sessions. It answers the vet and assigns the shared id `REF-nnnn`.
@@ -36,11 +40,22 @@ Read it top to bottom. Solid arrows are calls, dashed arrows are replies, and th
 6. **Document release.** The Therapy Agent does not own the document. It calls `get_referral_document` on the clinic, and the clinic asks back whether the release is confirmed. The Therapy Agent confirms, because it holds the referral and the insurer needs the document, and the clinic releases the diagnosis and recent visits.
 7. **Decision.** The Therapy Agent repeats the insurer call with the document. The Insurance Agent computes the policy facts, asks the model how many sessions are reasonable, and the code clamps the answer to its limits. The result is `APPROVED`, `PARTIAL` or `DENIED`.
 8. **Booking.** For `APPROVED` or `PARTIAL` the Therapy Agent books exactly the approved number of sessions and reports `SCHEDULED` to the clinic. For `DENIED` it books nothing and reports `NOT_COVERED` with the insurer's reason.
-9. **Billing.** After each completed session the Therapy Agent calls `submit_provider_claim`. The insurer files a claim for at most the approved amount per session and starts its existing fraud check, which asks the clinics to confirm the visit.
+9. **Billing.** After each completed session the Therapy Agent calls `submit_provider_claim`. The insurer files a claim for at most the approved amount per session and gives it a rule-based fraud score. An adjuster can then start the fraud agent, which asks the clinics to confirm the visit.
 
 When the insurer's model takes longer than the connection stays open, the Therapy Agent does not give up: it polls `get_preauthorization` until the insurer's stored answer appears, for at most four minutes.
 
 **Cancelling.** The vet can cancel a scheduled referral. The Clinic Agent asks the Therapy Agent with `cancel_referral`. The rule is the same in every institution: sessions that are completed stay billed, sessions that are still booked are cancelled, and the Therapy Agent asks the Insurance Agent with `release_preauthorization` to release the coverage reserved for those sessions. The clinic hears `CANCELLED`, and a new referral for the same duck is possible again. In the demo, a referral with 4 booked sessions and 1 completed one ended with 3 cancelled sessions and 1 billed session.
+
+## The fraud agent in DuckInsurance
+
+DuckInsurance has a fourth agent, the fraud agent. It is not part of the referral conversation: it judges claims, whether they come from the Therapy Agent or from an adjuster. Every new claim first gets an automatic rule-based score. The agent runs only when an adjuster presses Check on a claim.
+
+&#91;embedded content: fraud agent workflow · 4 steps, 2 clinics, 1 fallback\]
+
+- **Trigger and action.** The Check button fires a CDI event. The agent finds the duck by owner last name and duck name in both clinics and reads its visits and appointments over MCP. It keeps only records within 14 days of the incident. A clinic it cannot reach is unknown, not suspicious.
+- **Decision.** The model gets the claim and the records and answers with JSON: a score from 0 (plausible) to 100 (very suspicious), a reason, and optionally a treatment and a therapist. The code clamps the score to 0 to 100, and if the answer cannot be read, a rule decides.
+- **Outcome.** The score and reason are stored on the claim, which stays under review. If neither clinic has the treatment but the duck is a patient of the therapy clinic, the agent adds a booking proposal that an adjuster can accept.
+- **Errors.** Without any reachable clinic the claim keeps the rule-based score and says so. Any other failure is noted on the claim and the earlier score stays.
 
 ## How an agent decides
 
