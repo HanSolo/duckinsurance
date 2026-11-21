@@ -22,9 +22,9 @@ All three agents use the same local Ollama model and the same pattern. The clini
 
 ## How the three institutions interact
 
-&#91;embedded content: referral flow · 3 institutions, 13 messages\]
+&#91;embedded content: referral and cancellation flow · 3 institutions, 18 messages\]
 
-Read it top to bottom. Solid arrows are calls, dashed arrows are replies, and the two highlighted replies are the insurer and the clinic asking back inside the same call before it can be answered.
+Read it top to bottom. Solid arrows are calls, dashed arrows are replies, and the two highlighted replies are the insurer and the clinic asking back inside the same call before it can be answered. Messages 1 to 13 are the referral, from the vet's question to the first claim. Messages 14 to 18 are the cancellation after the first session.
 
 ## The conversation step by step
 
@@ -39,6 +39,8 @@ Read it top to bottom. Solid arrows are calls, dashed arrows are replies, and th
 9. **Billing.** After each completed session the Therapy Agent calls `submit_provider_claim`. The insurer files a claim for at most the approved amount per session and starts its existing fraud check, which asks the clinics to confirm the visit.
 
 When the insurer's model takes longer than the connection stays open, the Therapy Agent does not give up: it polls `get_preauthorization` until the insurer's stored answer appears, for at most four minutes.
+
+**Cancelling.** The vet can cancel a scheduled referral. The Clinic Agent asks the Therapy Agent with `cancel_referral`. The rule is the same in every institution: sessions that are completed stay billed, sessions that are still booked are cancelled, and the Therapy Agent asks the Insurance Agent with `release_preauthorization` to release the coverage reserved for those sessions. The clinic hears `CANCELLED`, and a new referral for the same duck is possible again. In the demo, a referral with 4 booked sessions and 1 completed one ended with 3 cancelled sessions and 1 billed session.
 
 ## How an agent decides
 
@@ -56,12 +58,14 @@ The agents talk through MCP tools over Streamable HTTP, using the stateless 2026
 | Tool | Offered by | Called by | Purpose |
 | --- | --- | --- | --- |
 | `propose_treatment_plan` | Therapy clinic | Clinic Agent | Hands over the referral and starts the planning |
+| `cancel_referral` | Therapy clinic | Clinic Agent | Cancels a scheduled referral: booked sessions are cancelled, completed ones stay billed |
 | `get_plan_status`, `complete_appointment` | Therapy clinic | Clinic side, demo page | Shows the plan, completes a session |
 | `request_preauthorization` | Insurer | Therapy Agent | Asks whether the insurer pays for the plan |
 | `get_preauthorization` | Insurer | Therapy Agent | Reads the stored answer, used when the connection broke |
 | `submit_provider_claim` | Insurer | Therapy Agent | Bills one completed session |
+| `release_preauthorization` | Insurer | Therapy Agent | Cancels the pre-authorization and releases the coverage reserved for sessions that were not claimed |
 | `get_referral_document` | Duck clinic | Therapy Agent | Releases the referral document for the insurer |
-| `report_referral_status` | Duck clinic | Therapy Agent | Reports PLANNING, SCHEDULED, NOT\_COVERED, REJECTED, IN\_TREATMENT or COMPLETED |
+| `report_referral_status` | Duck clinic | Therapy Agent | Reports PLANNING, SCHEDULED, NOT\_COVERED, REJECTED, IN\_TREATMENT, COMPLETED or CANCELLED |
 
 **Multi round-trip requests.** A tool can answer `input_required` with a question instead of a result. The caller answers the question and repeats the same call with its answers and a signed `requestState`. The demo uses this twice: the insurer asks for the referral document inside `request_preauthorization`, and the clinic asks for a confirmation inside `get_referral_document`. The state is signed, so the caller cannot change the original request between the rounds.
 
@@ -71,7 +75,7 @@ The agents talk through MCP tools over Streamable HTTP, using the stateless 2026
 
 ## Watching it run, and known limits
 
-The **Agents** page in DuckInsurance (sign in as an adjuster) merges the in-memory logs of all three agents into one conversation, newest at the bottom, and refreshes every 2 seconds. Each entry shows who spoke, to whom, and its kind: REQUEST, ANSWER, THOUGHT, POLICY, ACTION or ERROR. The buttons start the Sir Quacksalot referral, complete the next session and reset the logs.
+The **Agents** page in DuckInsurance (sign in as an adjuster) merges the in-memory logs of all three agents into one conversation, newest at the bottom, and refreshes every 2 seconds. Each entry shows who spoke, to whom, and its kind: REQUEST, ANSWER, THOUGHT, POLICY, ACTION or ERROR. The buttons start the referral for Sir Quacksalot (the full path) or for Don Quixote (the clinic declines by its own rule), complete the next session, cancel the referral and reset the logs. Completing and cancelling are available only once a referral is scheduled.
 
 Known limits of the demo:
 
@@ -79,4 +83,4 @@ Known limits of the demo:
 - The insurer's model call can take longer than a connection stays open. The Therapy Agent then polls `get_preauthorization` for the stored answer.
 - State and logs are kept in memory and are lost on restart.
 - Ducks are matched by owner last name and duck name, and the clinics' MCP endpoints have no authentication yet.
-- Not built yet: the refusal case (a duck without a recent visit), cancelling an appointment with release of the reserved coverage, and per-agent authentication between all three apps.
+- Cancelling works only for a scheduled referral, not while the therapy agent is still planning. Not built yet: per-agent authentication between all three apps.

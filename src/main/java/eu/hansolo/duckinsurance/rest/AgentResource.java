@@ -80,6 +80,14 @@ public class AgentResource {
         return relay(partners.post(url, ""), "The Duck Physical Therapy Clinic is not reachable at " + partners.physioRest());
     }
 
+    /** The vet cancels a scheduled referral: the DuckClinic's agent asks the therapy clinic's agent, which cancels the booked sessions and has the insurer release the reserved coverage. */
+    @POST
+    @Path("/cancel")
+    public Response cancelReferral(@QueryParam("referralId") String referralId, @QueryParam("reason") String reason) {
+        String url = partners.clinicRest() + "/referrals/" + URLEncoder.encode(referralId == null ? "" : referralId, StandardCharsets.UTF_8) + "/cancel" + (reason == null || reason.isBlank() ? "" : "?reason=" + URLEncoder.encode(reason, StandardCharsets.UTF_8));
+        return relay(partners.post(url, ""), "The DuckClinic is not reachable at " + partners.clinicRest());
+    }
+
     /** Forgets the conversation and the pre-authorizations here and in the two clinics, so that the demo can be shown again. The data (visits, appointments, claims) stays. */
     @DELETE
     @Path("/log")

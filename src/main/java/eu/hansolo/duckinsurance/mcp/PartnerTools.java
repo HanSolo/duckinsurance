@@ -138,6 +138,22 @@ public class PartnerTools {
         return ToolResult.structured(Json.createObjectBuilder().add("claimNumber", claim.getClaimNumber()).add("claimedAmount", claimed).add("billedAmount", billed).add("status", claim.getStatus().name()).add("remainingSessions", pre.approvedSessions() - pre.claimedSessions() - 1).build());
     }
 
+    @McpTool(name = "release_preauthorization", description = "A clinic cancels a treatment plan that was pre-authorized. The insurer cancels the pre-authorization: sessions that were claimed stay claimed, the coverage reserved for the sessions not yet claimed is released.")
+    public ToolResult releasePreauthorization(@McpParam(description = "Referral id of the pre-authorization, like REF-0001") String referralId, @McpParam(description = "Why the plan is cancelled") Optional<String> reason) {
+        requireAgent();
+        PreauthStore.Preauth before = store.get(referralId);
+        if (before == null) throw new ToolExecutionException("There is no pre-authorization for " + referralId);
+        if (before.status().equals("CANCELLED")) throw new ToolExecutionException("The pre-authorization " + before.reference() + " was cancelled already");
+        if (!(before.status().equals("APPROVED") || before.status().equals("PARTIAL"))) throw new ToolExecutionException("Nothing to release: the pre-authorization " + before.reference() + " is " + before.status());
+        String     why      = reason.filter(r -> !r.isBlank()).map(String::strip).orElse("no reason given");
+        int        sessions = before.approvedSessions() - before.claimedSessions();
+        BigDecimal amount   = before.reservation();
+        store.cancel(referralId, why);
+        log.say(referralId, null, "POLICY", "Rule: claimed sessions stay claimed, the coverage reserved for sessions that were not claimed is released. " + before.claimedSessions() + " of " + before.approvedSessions() + " session(s) were claimed.");
+        log.say(referralId, "Therapy Agent", "ANSWER", "Pre-authorization " + before.reference() + " cancelled (" + why + "). Released " + sessions + " session(s), " + amount + " EUR of coverage. " + before.claimedSessions() + " claimed session(s) stay.");
+        return ToolResult.structured(Json.createObjectBuilder().add("reference", before.reference()).add("status", "CANCELLED").add("releasedSessions", sessions).add("releasedAmount", amount).add("claimedSessions", before.claimedSessions()).add("claimedAmount", before.claimedAmount()).build());
+    }
+
     @McpTool(name = "get_preauthorization", description = "Shows the pre-authorization that was given for a referral, and how much of it was claimed.", readOnlyHint = McpTool.Hint.TRUE)
     public ToolResult getPreauthorization(@McpParam(description = "Referral id, like REF-0001") String referralId) {
         requireAgent();

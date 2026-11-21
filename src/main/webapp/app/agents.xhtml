@@ -16,7 +16,9 @@
             <p class="muted">Three applications, three agents, one referral. Start it and watch the agents talk: the DuckClinic refers the duck, the physical therapy clinic plans the sessions and asks DuckInsurance for pre-authorization, and DuckInsurance answers with its own rules. Each line is tagged with the application that wrote it. Thoughts and rules (grey) are what the agent considered before it spoke.</p>
             <div class="agent-bar">
                 <button type="button" class="btn primary" id="start">Start referral for Sir Quacksalot</button>
-                <button type="button" class="btn" id="complete">Complete next session</button>
+                <button type="button" class="btn" id="decline">Start referral for Don Quixote</button>
+                <button type="button" class="btn" id="complete" disabled="disabled" title="Available when a referral is scheduled">Complete next session</button>
+                <button type="button" class="btn" id="cancel" disabled="disabled" title="Available when a referral is scheduled">Cancel referral</button>
                 <button type="button" class="btn ghost" id="reset">Reset conversation</button>
                 <span class="spacer"></span>
                 <label class="muted"><input type="checkbox" id="auto" checked="checked"/> refresh every 2 s</label>
@@ -45,6 +47,7 @@
                 var base = '#{facesContext.externalContext.requestContextPath}/api/agent';
                 var lastCount = 0;
                 var lastReferral = null;
+                var openTarget   = null;
                 var css = { DuckClinic: 'clinic', PhysicalTherapy: 'physio', DuckInsurance: 'insurer' };
 
                 function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
@@ -80,6 +83,11 @@
                     data.referrals.forEach(function (x) { var li = el('li'); li.appendChild(el('strong', '', x.referralId + ' ')); li.appendChild(document.createTextNode(x.duckName + ': ' + x.status)); if (x.message) li.appendChild(el('div', 'muted', x.message)); r.appendChild(li); lastReferral = x.referralId; });
                     var p = document.getElementById('preauths'); p.textContent = '';
                     if (data.preauthorizations.length === 0) p.appendChild(el('li', 'muted', 'none'));
+                    var scheduled = {}; data.referrals.forEach(function (x) { scheduled[x.referralId] = (x.status === 'SCHEDULED' || x.status === 'IN_TREATMENT'); });
+                    var open = data.preauthorizations.filter(function (x) { return scheduled[x.referralId] && (x.status === 'APPROVED' || x.status === 'PARTIAL') && x.claimedSessions < x.approvedSessions; });
+                    openTarget = open.length ? open[open.length - 1].referralId : null;
+                    document.getElementById('complete').disabled = !openTarget;
+                    document.getElementById('cancel').disabled   = !openTarget;
                     data.preauthorizations.forEach(function (x) { var li = el('li'); li.appendChild(el('strong', '', x.reference + ' ')); li.appendChild(document.createTextNode(x.referralId + ': ' + x.status + ', ' + x.claimedSessions + ' of ' + x.approvedSessions + ' sessions claimed (' + x.approvedTotal + ' EUR)')); p.appendChild(li); });
                 }
 
@@ -90,7 +98,9 @@
                     fetch(base + path, { method: 'POST', credentials: 'same-origin' }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)); notice(ok(j)); refresh(); }); }).catch(function (e) { notice(e.message, true); });
                 }
                 document.getElementById('start').onclick = function () { notice('Starting…'); post('/referrals', function () { return 'The clinic agent is working. The model needs a moment, the conversation fills in as it goes.'; }); };
-                document.getElementById('complete').onclick = function () { if (!lastReferral) { notice('There is no referral yet.', true); return; } post('/complete-session?referralId=' + encodeURIComponent(lastReferral), function (j) { return j.message || 'Session completed, the therapy clinic agent bills the insurer.'; }); };
+                document.getElementById('decline').onclick = function () { notice('Starting…'); post('/referrals?owner=Alvarez&duck=' + encodeURIComponent('Don Quixote'), function () { return 'The clinic agent is working. Don Quixote had no recent visit, so expect the clinic to decline by its own rule, without asking the model.'; }); };
+                document.getElementById('complete').onclick = function () { if (!openTarget) { notice('No referral is scheduled yet.', true); return; } post('/complete-session?referralId=' + encodeURIComponent(openTarget), function (j) { return j.message || 'Session completed, the therapy clinic agent bills the insurer.'; }); };
+                document.getElementById('cancel').onclick = function () { if (!openTarget) { notice('No referral is scheduled yet.', true); return; } notice('Cancelling…'); post('/cancel?referralId=' + encodeURIComponent(openTarget) + '&reason=' + encodeURIComponent('the owner asked to stop the treatment'), function (j) { return j.message || 'The referral was cancelled.'; }); };
                 document.getElementById('reset').onclick = function () { fetch(base + '/log', { method: 'DELETE', credentials: 'same-origin' }).then(function () { lastCount = -1; lastReferral = null; notice('Conversation cleared. Data (claims, appointments, visits) was not changed.'); refresh(); }); };
                 refresh();
                 setInterval(function () { if (document.getElementById('auto').checked) refresh(); }, 2000);

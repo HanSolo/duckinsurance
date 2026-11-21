@@ -54,6 +54,14 @@ public class PreauthStore {
         return byReferral.computeIfPresent(referralId, (id, p) -> new Preauth(p.reference(), p.referralId(), p.policyId(), p.policyNumber(), p.duckName(), p.status(), p.approvedSessions(), p.approvedPerSession(), p.approvedTotal(), p.claimedSessions() + 1, p.claimedAmount().add(amount), p.reason(), p.at()));
     }
 
+    /**
+     * Cancels a pre-authorization. Sessions that were claimed stay claimed, so the approved sessions and the approved total shrink to what was claimed and nothing remains reserved.
+     * @return the cancelled pre-authorization, or null if the referral has none
+     */
+    public Preauth cancel(String referralId, String reason) {
+        return byReferral.computeIfPresent(referralId, (id, p) -> new Preauth(p.reference(), p.referralId(), p.policyId(), p.policyNumber(), p.duckName(), "CANCELLED", p.claimedSessions(), p.approvedPerSession(), p.claimedAmount(), p.claimedSessions(), p.claimedAmount(), reason, LocalDateTime.now()));
+    }
+
     /** Coverage of one policy that is promised to clinics but not yet claimed. */
     public BigDecimal reserved(long policyId) {
         return byReferral.values().stream().filter(p -> p.policyId() == policyId).map(Preauth::reservation).reduce(BigDecimal.ZERO, BigDecimal::add);

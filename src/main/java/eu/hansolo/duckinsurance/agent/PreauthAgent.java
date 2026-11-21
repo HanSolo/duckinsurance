@@ -114,7 +114,7 @@ public class PreauthAgent {
         String prompt = """
                 %s
 
-                A clinic asks for a pre-authorization. The limits below were calculated by the code and are final.
+                A clinic asks for a pre-authorization. The code already checked that the policy is active, the waiting period is over and the referral document is attached. The limits below were calculated by the code and are final: do not check these again and never deny because of them.
 
                 Request: %s asks for %d sessions of "%s" for the duck %s, price %s EUR per session.
                 Diagnosis according to the clinic: %s
@@ -137,7 +137,7 @@ public class PreauthAgent {
         PreauthStore.Preauth saved = store.save(request, answer);
         String verdict = switch (answer.status()) {
             case "APPROVED"   -> "APPROVED " + answer.approvedSessions() + " session(s) at " + answer.approvedPerSession() + " EUR (" + answer.approvedTotal() + " EUR). Reference " + saved.reference() + ". " + answer.reason();
-            case "PARTIAL"    -> "PARTIALLY approved: " + answer.approvedSessions() + " of " + request.sessions() + " session(s), " + answer.approvedPerSession() + " EUR per session (" + answer.approvedTotal() + " EUR). Reference " + saved.reference() + ". " + answer.reason();
+            case "PARTIAL"    -> (answer.approvedSessions() == request.sessions() ? "APPROVED all " + answer.approvedSessions() + " session(s), the price is capped at " + answer.approvedPerSession() + " EUR per session (" + answer.approvedTotal() + " EUR). " : "PARTIALLY approved: " + answer.approvedSessions() + " of " + request.sessions() + " session(s), " + answer.approvedPerSession() + " EUR per session (" + answer.approvedTotal() + " EUR). ") + "Reference " + saved.reference() + ". " + answer.reason();
             case "NEEDS_INFO" -> "I cannot decide yet. Missing: " + String.join(", ", answer.missing()) + ". " + answer.reason();
             default           -> "DENIED. " + answer.reason();
         };

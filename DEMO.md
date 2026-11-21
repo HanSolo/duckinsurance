@@ -168,6 +168,10 @@ Needs all three applications and the same Ollama model: DuckInsurance (8081), th
 
 Grey lines are what an agent considered (thoughts and rules). Coloured edges show which application wrote the line.
 
+**The agent that says no.** Press **Start referral for Don Quixote** (owner Alvarez). His only visit at the DuckClinic is more than a year old, so the Clinic Agent declines by its own rule (`NO_RECENT_VISIT`) without asking the model: the line is marked *[decided by the rules]*, nothing is sent, and the other two agents stay silent. The referral list shows DECLINED. It fits the fraud story of section 9: the same duck has a pending wing fracture claim for which the clinic has no record.
+
+**Cancelling.** The buttons *Complete next session* and *Cancel referral* stay disabled until a referral is really scheduled (the DuckClinic shows SCHEDULED or IN_TREATMENT and the insurer holds an approved pre-authorization with sessions left). Complete one or two sessions, then press **Cancel referral**. The Clinic Agent asks the Therapy Agent to cancel, which cancels the sessions that are still booked, completed ones stay billed. The Therapy Agent then asks the Insurance Agent to release the coverage reserved for the cancelled sessions (`release_preauthorization`). Look at the pre-authorization list on the right: it now says CANCELLED with the number of sessions that were claimed. The referral shows CANCELLED at the DuckClinic, and a new referral for the same duck is possible again.
+
 *Under the hood:* `agent/PreauthAgent` (Jakarta Agentic AI, same pattern as `ClaimFraudAgent`), `mcp/PartnerTools` (the tools the clinics' agents call), `agent/PreauthPolicy` and `resources/policies/insurer-agent-policy.md` (limits in code and in words), `security/AgentAccess` (role AGENT for the clinics' agents), `rest/AgentResource` and `app/agents.xhtml` (the page).
 
 ---
