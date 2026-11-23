@@ -136,7 +136,7 @@ That also works without Docker: set the same names as environment variables or `
 | `LLM_BASE_URL` | model server, used by the Assistant and the agents | Ollama on the host |
 | `LLM_MODEL` | model name, used by the Assistant and the agents | `qwen3.8:27b` |
 | `LLM_API_KEY` | key, used by the Assistant and the agents; any text for Ollama | `ollama` |
-| `LLM_MAX_TOKENS` | answer length (anthropic: 1024; openai: none unless set) | |
+| `LLM_MAX_TOKENS` | answer length (anthropic: 4096; openai: none unless set) | |
 | `ASSISTANT_PROVIDER`, `ASSISTANT_BASE_URL`, `ASSISTANT_MODEL`, `ASSISTANT_API_KEY` | optional: a different model for the Assistant only | |
 | `ANTHROPIC_MAX_TOKENS`, `AGENT_MAX_ROUNDS` | optional limits of the Assistant | 1024, 8 |
 | `DUCKCLINIC_MCP_URL`, `DUCK_FRAUD_AGENT`, `DUCK_CONFIRM_WRITES`, `MCP_SELF_URL` | see `compose.yaml` | |
@@ -154,5 +154,5 @@ Pick a provider in `llm.env` and run `docker compose up -d`:
 
 - **Fraud and pre-authorization agents:** they inject `LargeLanguageModel` as before, but the bean now comes from the application (`agent/ConfiguredLlm`). Payara 7.2026.10 only has ollama, anthropic and vertex backends (read from `LlmBackendFactory` in `glassfish/modules/agentic-ai-core.jar`), no OpenAI format. When an application has its own managed bean of type `LargeLanguageModel`, Payara's `AgenticAIExtension` does not create its default, so `payara.agentic.llm.*` no longer applies.
 - **Assistant:** uses the same `LLM_*` values. With `ollama` and `anthropic` it uses `chat/AnthropicLlm` (Ollama 0.14+ speaks the Messages API); with `openai` it uses `chat/OpenAiLlm`, which translates tools, tool calls and tool results to the Chat Completions format, streaming included. How well the Assistant uses tools depends on the model: some models on OpenAI-format services do not support tools at all, and small local models often stop after one step. `ASSISTANT_PROVIDER`, `ASSISTANT_BASE_URL`, `ASSISTANT_MODEL` and `ASSISTANT_API_KEY` optionally give the Assistant a different model than the agents.
-- **`LLM_MAX_TOKENS`:** with `anthropic` the default is 1024; with `openai` no limit is sent unless it is set, because newer OpenAI models reject `max_tokens` (Groq, OpenRouter and Mistral accept it).
+- **`LLM_MAX_TOKENS`:** with `anthropic` the default is 4096 (thinking models such as qwen3 on Ollama spend part of it before they answer); with `openai` no limit is sent unless it is set, because newer OpenAI models reject `max_tokens` (Groq, OpenRouter and Mistral accept it).
 - Never put a real key in `llm.env.example` or in the image.
