@@ -1,6 +1,5 @@
 package eu.hansolo.duckinsurance.agent;
 
-import eu.hansolo.duckinsurance.config.AppConfig;
 import eu.hansolo.duckinsurance.domain.DomainException;
 import eu.hansolo.duckinsurance.domain.PolicyType;
 import eu.hansolo.duckinsurance.service.ClaimService;
@@ -38,8 +37,9 @@ public class AgentCheck {
     private Event<ClaimCheckRequest> requests;
 
 
+    /** Switched with DUCK_FRAUD_AGENT at start and with the demo switch in the sidebar (see web/DemoFeatures). */
     public static boolean enabled() {
-        return !"off".equalsIgnoreCase(AppConfig.get("DUCK_FRAUD_AGENT", "on"));
+        return eu.hansolo.duckinsurance.web.DemoFeatures.fraudAgentOn();
     }
 
     /**
@@ -47,7 +47,7 @@ public class AgentCheck {
      * @throws DomainException if the claim cannot be checked
      */
     public boolean start(long claimId) {
-        if (!enabled()) throw DomainException.conflict("The fraud agent is switched off (DUCK_FRAUD_AGENT=off)");
+        if (!enabled()) throw DomainException.conflict("The fraud agent is switched off");
         var claim = claims.get(claimId);
         if (!claim.getStatus().isOpen()) throw DomainException.conflict("Claim is already " + claim.getStatus());
         var type = policies.get(claim.getPolicyId()).getType();

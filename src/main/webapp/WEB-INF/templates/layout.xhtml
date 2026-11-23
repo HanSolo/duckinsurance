@@ -13,6 +13,7 @@
     <h:outputStylesheet library="css" name="app.css"/>
 </h:head>
 <h:body>
+    <f:event type="preRenderView" listener="#{demoFeatures.guard}"/>
     <div class="shell">
         <aside class="sidebar">
             <div class="brand"><span class="logo">🦆</span><div><strong>DuckInsurance</strong><small>Jakarta EE 11 reference demo</small></div></div>
@@ -23,8 +24,8 @@
                 <h:link outcome="/app/policies" value="Policies"/>
                 <h:link outcome="/app/claims" value="Claims"/>
                 <h:link outcome="/app/vets" value="Vets"/>
-                <h:link outcome="/app/chat" value="Assistant"/>
-                <h:link outcome="/app/agents" value="Agents" rendered="#{facesContext.externalContext.isUserInRole('ADMIN') or facesContext.externalContext.isUserInRole('ADJUSTER')}"/>
+                <h:link outcome="/app/chat" value="Assistant" rendered="#{demoFeatures.assistant}"/>
+                <h:link outcome="/app/agents" value="Agents" rendered="#{demoFeatures.agentsTab and (facesContext.externalContext.isUserInRole('ADMIN') or facesContext.externalContext.isUserInRole('ADJUSTER'))}"/>
                 <a href="#{facesContext.externalContext.requestContextPath}/openapi" target="_blank">OpenAPI ↗</a>
             </nav>
             <div class="sidebar-foot">
@@ -34,6 +35,12 @@
                         <small>#{facesContext.externalContext.isUserInRole('ADMIN') ? 'ADMIN' : (facesContext.externalContext.isUserInRole('ADJUSTER') ? 'ADJUSTER' : 'CUSTOMER')}</small></div>
                 </div>
                 <h:form><h:commandButton value="Sign out" action="#{loginBean.logout}" styleClass="btn ghost wide"/></h:form>
+                <!-- Demo switches (ADMIN only): tell the story step by step, see web/DemoFeatures -->
+                <h:form id="demoSwitches" styleClass="demo-switches" rendered="#{facesContext.externalContext.isUserInRole('ADMIN')}">
+                    <h:commandLink id="assistant" action="#{demoFeatures.toggleAssistant}" styleClass="#{demoFeatures.assistant ? 'on' : 'off'}" title="Assistant page: click to switch #{demoFeatures.assistant ? 'off' : 'on'}">AI</h:commandLink>
+                    <h:commandLink id="fraud" action="#{demoFeatures.toggleFraudAgent}" styleClass="#{demoFeatures.fraudAgent ? 'on' : 'off'}" title="Fraud agent: click to switch #{demoFeatures.fraudAgent ? 'off' : 'on'}">Fraud</h:commandLink>
+                    <h:commandLink id="agents" action="#{demoFeatures.toggleAgentsTab}" styleClass="#{demoFeatures.agentsTab ? 'on' : 'off'}" title="Agents page: click to switch #{demoFeatures.agentsTab ? 'off' : 'on'}">A2A</h:commandLink>
+                </h:form>
                 <div class="runtime">
                     <span>#{runtimeInfo.server}</span>
                     <span>Java #{runtimeInfo.java}</span>

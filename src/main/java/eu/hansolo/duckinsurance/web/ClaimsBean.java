@@ -119,6 +119,12 @@ public class ClaimsBean implements Serializable {
         load();
     }
 
+    /** The reason under the fraud score; while the fraud agent is switched off, without the hint to ask it. */
+    public String reason(Claim claim) {
+        String reason = claim.getFraudReason();
+        return reason == null || AgentCheck.enabled() ? reason : reason.replace(" Press Check to compare the claim with the DuckClinic.", "");
+    }
+
     public boolean canCheck(Claim claim) {
         return claim.getStatus().isOpen() && !eu.hansolo.duckinsurance.service.ClaimService.CHECKING.equals(claim.getFraudReason()) && isCheckable(policiesById.get(claim.getPolicyId()).getType()) && AgentCheck.enabled();
     }

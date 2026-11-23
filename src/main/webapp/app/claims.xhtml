@@ -9,11 +9,11 @@
     <ui:define name="title">Claims</ui:define>
     <ui:define name="heading">Claims</ui:define>
     <ui:define name="specs">
-        <span>CDI events</span><span>Concurrency 3.1 · virtual threads</span><span>Security 4.0 · roles</span><span>Agentic AI 1.0 (draft)</span>
+        <span>CDI events</span><span>Concurrency 3.1 · virtual threads</span><span>Security 4.0 · roles</span><ui:fragment rendered="#{demoFeatures.fraudAgent}"><span>Agentic AI 1.0 (draft)</span></ui:fragment>
     </ui:define>
 
     <ui:define name="content">
-        <h:form id="agent">
+        <h:form id="agent" rendered="#{demoFeatures.fraudAgent}">
             <h:panelGroup id="agentStatus" layout="block" styleClass="chat-status">
                 <span class="dot #{fraudAgentBean.state}"></span><span class="muted"><strong>Fraud agent</strong> (Jakarta Agentic AI), DuckClinic: #{fraudAgentBean.text}</span><br/>
                 <h:panelGroup rendered="#{not fraudAgentBean.off}"><span class="dot #{fraudAgentBean.physioState}"></span><span class="muted">Physical therapy clinic: #{fraudAgentBean.physioText}</span><br/></h:panelGroup>
@@ -51,7 +51,7 @@
                             <td>#{c.description}<h:panelGroup rendered="#{c.decisionNote != null}"><div class="muted note">#{c.decidedBy}: #{c.decisionNote}</div></h:panelGroup></td>
                             <td class="mono"><h:outputText value="#{c.amount}"><f:convertNumber pattern="€#,##0.00"/></h:outputText></td>
                             <td>
-                                <h:panelGroup rendered="#{c.fraudScore != null}"><span class="meter risk-#{c.fraudScore ge 60 ? 'high' : (c.fraudScore ge 30 ? 'mid' : 'low')}"><i style="width: #{c.fraudScore}%"></i></span> <span class="mono">#{c.fraudScore}</span><h:panelGroup rendered="#{c.fraudReason != null}"><div class="muted note">#{c.fraudReason}</div></h:panelGroup><h:panelGroup rendered="#{c.proposal != null}"><div class="note proposal">#{claimsBean.proposalText(c)}<br/>
+                                <h:panelGroup rendered="#{c.fraudScore != null}"><span class="meter risk-#{c.fraudScore ge 60 ? 'high' : (c.fraudScore ge 30 ? 'mid' : 'low')}"><i style="width: #{c.fraudScore}%"></i></span> <span class="mono">#{c.fraudScore}</span><h:panelGroup rendered="#{c.fraudReason != null}"><div class="muted note">#{claimsBean.reason(c)}</div></h:panelGroup><h:panelGroup rendered="#{c.proposal != null}"><div class="note proposal">#{claimsBean.proposalText(c)}<br/>
                                     <h:commandButton value="Book it" action="#{claimsBean.book(c.id)}" styleClass="btn small primary" rendered="#{claimsBean.adjuster}" title="Book this appointment in the Duck Physical Therapy Clinic"/></div></h:panelGroup></h:panelGroup>
                                 <h:panelGroup rendered="#{c.fraudScore == null and c.status.open}"><span class="muted">checking…</span></h:panelGroup>
                                 <h:panelGroup rendered="#{c.fraudScore == null and not c.status.open}"><span class="muted">-</span></h:panelGroup>

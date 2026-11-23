@@ -117,12 +117,24 @@ New claims first get the quick rule-based check. The agent runs per claim, when 
 - A clinic that cannot be reached is treated as unknown, not suspicious. Only if neither can be reached, the claim gets the rule-based check.
 - The **Claims** page has one indicator per clinic, like the assistant's: green when the DuckClinic MCP endpoint is reachable and offers `find_owners` and `list_visits`. The reason of the agent is shown under the fraud score.
 - Needs **Payara 7.2026.8 or newer** (the image uses 7.2026.10), which ships the first preview of the API. The API may still change.
-- Settings: `DUCKCLINIC_MCP_URL` (default `http://host.docker.internal:8080/duck-clinic/api/mcp`), `DUCK_FRAUD_AGENT=off` to switch the agent off.
+- Settings: `DUCKCLINIC_MCP_URL` (default `http://host.docker.internal:8080/duck-clinic/api/mcp`), `DUCK_FRAUD_AGENT=off` to start with the agent switched off (see "Demo switches").
 - The clinic uses host port 8080, so DuckInsurance is published on **8081** (`DUCKINSURANCE_PORT` in `.env`, default 8081). The container itself still listens on 8080, which is why `MCP_SELF_URL` keeps its default. To move the clinic instead, set `DUCKINSURANCE_PORT=8080` and `DUCKCLINIC_MCP_URL`.
 - Demo data: copy `duck-clinic-patch/DataInitializer.java` into the clinic (see `duck-clinic-patch/README.md`), so the insured ducks exist there.
 - **Which model answers:** the agent injects the standard `LargeLanguageModel`. The application supplies that bean itself (`agent/ConfiguredLlm`), which reads `LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY` and `LLM_MAX_TOKENS` from `llm.env` through MicroProfile Config. See "Using a cloud model".
   The reason shown under the fraud score starts with `[agentic-ai]`. `[rules]` means the model answered but not in the expected JSON format, so a fixed rule judged instead. If the model or the clinic cannot be reached, the claim keeps its rule-based score and the reason says that the agent failed.
 - **What does not use the spec:** the Assistant page (streaming, tool calls and confirmations are outside the draft API, it uses its own client) and the reading of the clinic (MCP client library).
+
+## Demo switches
+
+To tell the story step by step (a plain Jakarta EE application first, then the Assistant, then the fraud agent, then the agent-to-agent part),
+an `admin` sees three small switches at the bottom of the sidebar: **AI** (Assistant page), **Fraud** (fraud agent) and **A2A** (Agents page).
+They apply to every user at once and need no restart. Switched off:
+
+- **AI:** the menu entry is hidden and the page sends the browser to the dashboard.
+- **Fraud:** the agent status, the Check button and the Agentic AI badge on the Claims page are hidden; claims get only the rule-based score. A claim the therapy clinic files still gets the rule-based score.
+- **A2A:** the menu entry is hidden and the page sends the browser to the dashboard. The partner tools for the clinics' agents keep working.
+
+Start values: `DUCK_ASSISTANT`, `DUCK_FRAUD_AGENT`, `DUCK_AGENTS_TAB` (`on` or `off`, default `on`). A restart goes back to them (`web/DemoFeatures`).
 
 ## Configuring the model (`llm.env`)
 
@@ -139,7 +151,8 @@ That also works without Docker: set the same names as environment variables or `
 | `LLM_MAX_TOKENS` | answer length (anthropic: 4096; openai: none unless set) | |
 | `ASSISTANT_PROVIDER`, `ASSISTANT_BASE_URL`, `ASSISTANT_MODEL`, `ASSISTANT_API_KEY` | optional: a different model for the Assistant only | |
 | `ANTHROPIC_MAX_TOKENS`, `AGENT_MAX_ROUNDS` | optional limits of the Assistant | 1024, 8 |
-| `DUCKCLINIC_MCP_URL`, `DUCK_FRAUD_AGENT`, `DUCK_CONFIRM_WRITES`, `MCP_SELF_URL` | see `compose.yaml` | |
+| `DUCKCLINIC_MCP_URL`, `DUCK_CONFIRM_WRITES`, `MCP_SELF_URL` | see `compose.yaml` | |
+| `DUCK_ASSISTANT`, `DUCK_FRAUD_AGENT`, `DUCK_AGENTS_TAB` | start value of the demo switches, `on` or `off` | `on` |
 
 The older `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` still work for the Assistant.
 
