@@ -11,7 +11,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 
-/** Asks the model server whether it is there. For Ollama it also checks that the configured model has been pulled (GET /api/tags). For the Anthropic API it only reports the settings. */
+/** Asks the model server whether it is there. For Ollama it also checks that the configured model has been pulled (GET /api/tags). For the Anthropic API and OpenAI-format services it only reports the settings. */
 public final class ModelCheck {
 
     /** state is ok, warn or bad (used as a CSS class). */
@@ -28,6 +28,9 @@ public final class ModelCheck {
         // The Anthropic API has no model list without a key and no /api/tags; key and model are checked by the first request
         if (base.contains("api.anthropic.com")) {
             return new Result("ok", "Claude API at " + base + ", model " + model + " (key and model are checked on the first request)");
+        }
+        if (LlmSettings.provider().equals("openai")) {
+            return new Result("ok", "OpenAI-format API at " + base + ", model " + model + " (key and model are checked on the first request)");
         }
         try {
             HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();

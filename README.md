@@ -83,7 +83,7 @@ The server speaks only MCP revision **2026-07-28** (no `initialize` handshake). 
 ### The Assistant page (MCP client inside the app)
 
 The sidebar entry **Assistant** is a chat page. It uses the [Jakarta MCP client](https://github.com/HanSolo/jakarta-mcp-client) (`eu.hansolo.mcp:mcp-jakarta-client:0.3.0` from Maven Central) to read the tools from `/api/mcp` and runs a tool-calling loop (`chat/AgentLoop`) against a model. The client sends a short-lived signed token (`security/InternalTokens`, HMAC, 2 minutes, accepted by `AppAuthMechanism` as a Bearer token) for the logged-in user,
-so the assistant acts with that user's role. The model defaults to an Ollama on the host (`http://host.docker.internal:11434`, model `qwen3.8:27b`); Ollama speaks the Anthropic Messages API since 0.14. On Linux, Ollama must listen on more than loopback for the container to reach it (`OLLAMA_HOST=0.0.0.0`); Docker Desktop needs nothing.
+so the assistant acts with that user's role. The model defaults to an Ollama on the host (`http://host.docker.internal:11434`, model `qwen3.8:27b`); Ollama speaks the Anthropic Messages API since 0.14. On Linux, Ollama must listen on more than loopback for the container to reach it (`OLLAMA_HOST=0.0.0.0`); Docker Desktop needs nothing. Claude or an OpenAI-format service work too, see "Using a cloud model".
 Settings: see **Configuring the model** below (`llm.env`).
 `MCP_SELF_URL` overrides the endpoint the page calls (default `http://localhost:8080/api/mcp`).
 
@@ -120,7 +120,7 @@ New claims first get the quick rule-based check. The agent runs per claim, when 
 - Settings: `DUCKCLINIC_MCP_URL` (default `http://host.docker.internal:8080/duck-clinic/api/mcp`), `DUCK_FRAUD_AGENT=off` to switch the agent off.
 - The clinic uses host port 8080, so DuckInsurance is published on **8081** (`DUCKINSURANCE_PORT` in `.env`, default 8081). The container itself still listens on 8080, which is why `MCP_SELF_URL` keeps its default. To move the clinic instead, set `DUCKINSURANCE_PORT=8080` and `DUCKCLINIC_MCP_URL`.
 - Demo data: copy `duck-clinic-patch/DataInitializer.java` into the clinic (see `duck-clinic-patch/README.md`), so the insured ducks exist there.
-- **Which model answers:** the agent injects the standard `LargeLanguageModel`. Payara reads its settings through MicroProfile Config: `payara.agentic.llm.provider`, `.model`, `.ollama.base-url`, `.anthropic.base-url` and `.anthropic.api-key`, which `META-INF/microprofile-config.properties` fills from the `LLM_PROVIDER`, `LLM_MODEL`, `LLM_BASE_URL` and `LLM_API_KEY` of `llm.env` (MicroProfile Config property expressions, `${LLM_MODEL:default}`). See "Using a cloud model" for where the names come from.
+- **Which model answers:** the agent injects the standard `LargeLanguageModel`. The application supplies that bean itself (`agent/ConfiguredLlm`), which reads `LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY` and `LLM_MAX_TOKENS` from `llm.env` through MicroProfile Config. See "Using a cloud model".
   The reason shown under the fraud score starts with `[agentic-ai]`. `[rules]` means the model answered but not in the expected JSON format, so a fixed rule judged instead. If the model or the clinic cannot be reached, the claim keeps its rule-based score and the reason says that the agent failed.
 - **What does not use the spec:** the Assistant page (streaming, tool calls and confirmations are outside the draft API, it uses its own client) and the reading of the clinic (MCP client library).
 
@@ -132,25 +132,27 @@ That also works without Docker: set the same names as environment variables or `
 
 | Variable | Meaning | Default |
 |---|---|---|
-| `LLM_PROVIDER` | provider of the agents' `LargeLanguageModel`: `ollama` or `anthropic` (alias `claude`) | `ollama` |
+| `LLM_PROVIDER` | provider of the agents: `ollama`, `anthropic` (alias `claude`) or `openai` | `ollama` |
 | `LLM_BASE_URL` | model server, used by the Assistant and the agents | Ollama on the host |
 | `LLM_MODEL` | model name, used by the Assistant and the agents | `qwen3.8:27b` |
-| `LLM_API_KEY` | key, used by the Assistant and (with `anthropic`) the agents; any text for Ollama | `ollama` |
+| `LLM_API_KEY` | key, used by the Assistant and the agents; any text for Ollama | `ollama` |
+| `LLM_MAX_TOKENS` | answer length (anthropic: 1024; openai: none unless set) | |
+| `ASSISTANT_PROVIDER`, `ASSISTANT_BASE_URL`, `ASSISTANT_MODEL`, `ASSISTANT_API_KEY` | optional: a different model for the Assistant only | |
 | `ANTHROPIC_MAX_TOKENS`, `AGENT_MAX_ROUNDS` | optional limits of the Assistant | 1024, 8 |
 | `DUCKCLINIC_MCP_URL`, `DUCK_FRAUD_AGENT`, `DUCK_CONFIRM_WRITES`, `MCP_SELF_URL` | see `compose.yaml` | |
 
-The older `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` still work for the Assistant. You can also set the `PAYARA_AGENTIC_LLM_*` environment variables directly; they win over the file.
+The older `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` still work for the Assistant.
 
 ### Using a cloud model
-Set these four values in `llm.env` and run `docker compose up -d`:
+Pick a provider in `llm.env` and run `docker compose up -d`:
 
-```
-LLM_PROVIDER=anthropic
-LLM_BASE_URL=https://api.anthropic.com
-LLM_MODEL=<a Claude model name your API account can use>
-LLM_API_KEY=sk-ant-...
-```
+| | `LLM_PROVIDER` | `LLM_BASE_URL` | `LLM_MODEL` | `LLM_API_KEY` |
+|---|---|---|---|---|
+| Local Ollama (default) | `ollama` | `http://host.docker.internal:11434` | `qwen3.8:27b` | any text |
+| Claude | `anthropic` | `https://api.anthropic.com` | a Claude model name | Anthropic key |
+| OpenAI format (OpenAI, Groq, OpenRouter, Mistral, ...) | `openai` | the service's URL with `/v1`, e.g. `https://api.openai.com/v1` | that service's model name | that service's key |
 
-- **Assistant:** uses `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL` with its own Messages API client (it ignores `LLM_PROVIDER`).
-- **Fraud and pre-authorization agents:** Payara 7.2026.10 ships an Anthropic backend for the injected `LargeLanguageModel` (`fish.payara.ai.agent.llm.LlmBackendFactory` in `glassfish/modules/agentic-ai-core.jar`). It accepts `payara.agentic.llm.provider` = `ollama`, `anthropic` (or `claude`), `vertex` or `none`, and for Anthropic reads `payara.agentic.llm.anthropic.base-url`, `payara.agentic.llm.anthropic.api-key`, `payara.agentic.llm.model` and `payara.agentic.llm.max-tokens` (default 4096). `META-INF/microprofile-config.properties` maps them from the `LLM_*` values above, so the agents need no code change. These names were read from the Payara jar, not from documentation, and may change in a later Payara release.
+- **Fraud and pre-authorization agents:** they inject `LargeLanguageModel` as before, but the bean now comes from the application (`agent/ConfiguredLlm`). Payara 7.2026.10 only has ollama, anthropic and vertex backends (read from `LlmBackendFactory` in `glassfish/modules/agentic-ai-core.jar`), no OpenAI format. When an application has its own managed bean of type `LargeLanguageModel`, Payara's `AgenticAIExtension` does not create its default, so `payara.agentic.llm.*` no longer applies.
+- **Assistant:** uses the same `LLM_*` values. With `ollama` and `anthropic` it uses `chat/AnthropicLlm` (Ollama 0.14+ speaks the Messages API); with `openai` it uses `chat/OpenAiLlm`, which translates tools, tool calls and tool results to the Chat Completions format, streaming included. How well the Assistant uses tools depends on the model: some models on OpenAI-format services do not support tools at all, and small local models often stop after one step. `ASSISTANT_PROVIDER`, `ASSISTANT_BASE_URL`, `ASSISTANT_MODEL` and `ASSISTANT_API_KEY` optionally give the Assistant a different model than the agents.
+- **`LLM_MAX_TOKENS`:** with `anthropic` the default is 1024; with `openai` no limit is sent unless it is set, because newer OpenAI models reject `max_tokens` (Groq, OpenRouter and Mistral accept it).
 - Never put a real key in `llm.env.example` or in the image.

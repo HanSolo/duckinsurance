@@ -21,7 +21,7 @@ import java.util.stream.Stream;
 
 /** The Anthropic Messages API over {@link HttpClient} and JSON-P, without a vendor SDK, with and without streaming. Any server that speaks the same API works, for example a local Ollama. */
 public final class AnthropicLlm implements Llm {
-    private static final String SYSTEM = "You are the assistant of DuckInsurance, an insurer for ducks, their owners and vets. Use the tools to answer. Look up ids with the list and search tools instead of guessing them. Only change data (issue a policy, submit or decide a claim) when the user clearly asks for it; the user is asked to confirm each change. If a tool reports an error or the user declined, say so plainly. Answer briefly.";
+    static final String SYSTEM = "You are the assistant of DuckInsurance, an insurer for ducks, their owners and vets. Use the tools to answer. Look up ids with the list and search tools instead of guessing them. Only change data (issue a policy, submit or decide a claim) when the user clearly asks for it; the user is asked to confirm each change. If a tool reports an error or the user declined, say so plainly. Answer briefly.";
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private final URI        endpoint;
     private final String     apiKey;
