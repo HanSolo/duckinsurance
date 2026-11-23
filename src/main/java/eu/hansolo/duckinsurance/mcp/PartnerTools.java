@@ -6,7 +6,6 @@ import eu.hansolo.duckinsurance.agent.PreauthAnswer;
 import eu.hansolo.duckinsurance.agent.PreauthRequest;
 import eu.hansolo.duckinsurance.agent.PreauthStore;
 import eu.hansolo.duckinsurance.domain.Claim;
-import eu.hansolo.duckinsurance.domain.DomainException;
 import eu.hansolo.duckinsurance.service.ClaimService;
 import eu.hansolo.mcp.api.Elicitation;
 import eu.hansolo.mcp.api.InputRequests;
@@ -27,7 +26,6 @@ import jakarta.security.enterprise.SecurityContext;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -60,12 +58,11 @@ public class PartnerTools {
 
 
     @McpTool(name = "request_preauthorization", description = "A clinic asks whether DuckInsurance will pay for a treatment plan. The insurer's agent answers APPROVED, PARTIAL (fewer sessions or a lower amount per session) or DENIED. If it needs the veterinary referral document it asks for it inside the same call (MCP input_required, a form with the field referralDocument): do not send the document up front, answer the question. A client that cannot be asked gets NEEDS_INFO with a list of what is missing, and calls again with the argument referralDocument. Takes up to a minute because a language model decides.", destructiveHint = McpTool.Hint.FALSE)
-    public ToolResult requestPreauthorization(@McpParam(description = "Referral id that all institutions carry, like REF-0001") String referralId, @McpParam(description = "Last name of the duck's owner") String ownerLastName, @McpParam(description = "Name of the duck") String duckName, @McpParam(description = "Name of the clinic that asks") String provider, @McpParam(description = "Name of the planned treatment") String treatmentName, @McpParam(description = "Diagnosis in one or two sentences") String diagnosis, @McpParam(description = "Number of planned sessions") int sessions, @McpParam(description = "Price per session in euro") double pricePerSession, @McpParam(description = "Date of the first session, 2026-12-01") String firstSession, @McpParam(description = "The veterinary referral document. Leave it out: the insurer asks for it if it needs it") Optional<String> referralDocument, ToolCall call) {
-        try {
+    public ToolResult requestPreauthorization(@McpParam(description = "Referral id that all institutions carry, like REF-0001") String referralId, @McpParam(description = "Last name of the duck's owner") String ownerLastName, @McpParam(description = "Name of the duck") String duckName, @McpParam(description = "Name of the clinic that asks") String provider, @McpParam(description = "Name of the planned treatment") String treatmentName, @McpParam(description = "Diagnosis in one or two sentences") String diagnosis, @McpParam(description = "Number of planned sessions") int sessions, @McpParam(description = "Price per session in euro") double pricePerSession, @McpParam(description = "Date of the first session, 2026-12-01") LocalDate firstSession, @McpParam(description = "The veterinary referral document. Leave it out: the insurer asks for it if it needs it") Optional<String> referralDocument, ToolCall call) {
         requireAgent();
         if (sessions < 1 || pricePerSession <= 0) throw new ToolExecutionException("sessions and pricePerSession must be positive");
         // What the question is about: it is signed into the request state, so the retry cannot change the request after the insurer asked
-        String arguments = String.join("|", referralId, ownerLastName, duckName, provider, treatmentName, diagnosis, String.valueOf(sessions), String.valueOf(pricePerSession), firstSession);
+        String arguments = String.join("|", referralId, ownerLastName, duckName, provider, treatmentName, diagnosis, String.valueOf(sessions), String.valueOf(pricePerSession), String.valueOf(firstSession));
         String context   = "request_preauthorization|" + call.caller().subject();
         String document  = referralDocument.orElse(null);
 
@@ -83,7 +80,7 @@ public class PartnerTools {
         }
 
         String correlation = UUID.randomUUID().toString();
-        PreauthRequest request = new PreauthRequest(correlation, referralId, ownerLastName, duckName, provider, treatmentName, diagnosis, sessions, BigDecimal.valueOf(pricePerSession), date(firstSession), document);
+        PreauthRequest request = new PreauthRequest(correlation, referralId, ownerLastName, duckName, provider, treatmentName, diagnosis, sessions, BigDecimal.valueOf(pricePerSession), firstSession, document);
         try {
             requests.fire(request);
         } catch (RuntimeException e) {
@@ -101,18 +98,10 @@ public class PartnerTools {
         }
         PreauthStore.Preauth saved = store.get(referralId);
         return ToolResult.structured(json(result, saved == null || result.status().equals("NEEDS_INFO") ? null : saved.reference()));
-        } catch (ToolExecutionException e) {
-            throw e;
-        } catch (RuntimeException e) {
-            // Anything else would reach the caller only as "Tool execution failed": say what it was, in the log and in the answer
-            LOG.log(Level.WARNING, "request_preauthorization failed unexpectedly", e);
-            Throwable root = e; while (root.getCause() != null && root.getCause() != root) root = root.getCause();
-            throw new ToolExecutionException("Unexpected error in request_preauthorization: " + e.getClass().getSimpleName() + ": " + e.getMessage() + (root == e ? "" : " (cause: " + root.getClass().getSimpleName() + ": " + root.getMessage() + ")"));
-        }
     }
 
     @McpTool(name = "submit_provider_claim", description = "A clinic bills one completed session of a pre-authorized treatment. The insurer files a claim against the policy (at most the pre-authorized amount per session) and starts its fraud check, which may ask the clinic to confirm the visit.", destructiveHint = McpTool.Hint.FALSE)
-    public ToolResult submitProviderClaim(@McpParam(description = "Referral id of the pre-authorization") String referralId, @McpParam(description = "Appointment number of the session at the clinic, like APT-00001") String appointmentNumber, @McpParam(description = "Name of the treatment") String treatmentName, @McpParam(description = "Date of the session, 2026-11-24") String sessionDate, @McpParam(description = "Amount billed in euro") double amount) {
+    public ToolResult submitProviderClaim(@McpParam(description = "Referral id of the pre-authorization") String referralId, @McpParam(description = "Appointment number of the session at the clinic, like APT-00001") String appointmentNumber, @McpParam(description = "Name of the treatment") String treatmentName, @McpParam(description = "Date of the session, 2026-11-24") LocalDate sessionDate, @McpParam(description = "Amount billed in euro") double amount) {
         requireAgent();
         PreauthStore.Preauth pre = store.get(referralId);
         if (pre == null || !(pre.status().equals("APPROVED") || pre.status().equals("PARTIAL"))) throw new ToolExecutionException("There is no approved pre-authorization for " + referralId + ". Ask request_preauthorization first.");
@@ -120,12 +109,7 @@ public class PartnerTools {
         BigDecimal billed  = BigDecimal.valueOf(amount);
         BigDecimal claimed = billed.min(pre.approvedPerSession());
         String description = "Referral %s: session %d of %d, %s (%s), pre-authorization %s".formatted(referralId, pre.claimedSessions() + 1, pre.approvedSessions(), treatmentName, appointmentNumber, pre.reference()) + (claimed.compareTo(billed) < 0 ? ". Billed " + billed + " EUR, covered up to " + claimed + " EUR." : "");
-        Claim claim;
-        try {
-            claim = claims.submit(pre.policyId(), description, claimed, date(sessionDate), null);
-        } catch (DomainException e) {
-            throw new ToolExecutionException(e.getMessage());
-        }
+        Claim claim = claims.submit(pre.policyId(), description, claimed, sessionDate, null);
         store.recordClaim(referralId, claimed);
         String checkNote;
         try {
@@ -164,14 +148,6 @@ public class PartnerTools {
 
     private void requireAgent() {
         if (!security.isCallerInRole("AGENT") && !security.isCallerInRole("ADMIN")) throw new ToolExecutionException("Only partner agents may use this tool");
-    }
-
-    private static LocalDate date(String text) {
-        try {
-            return LocalDate.parse(text.trim());
-        } catch (DateTimeParseException | NullPointerException e) {
-            throw new ToolExecutionException("'" + text + "' is not a date, use the format 2026-11-24");
-        }
     }
 
     private static JsonObject json(PreauthAnswer a, String reference) {

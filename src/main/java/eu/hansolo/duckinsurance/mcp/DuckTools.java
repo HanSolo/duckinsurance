@@ -4,7 +4,6 @@ import eu.hansolo.duckinsurance.config.AppConfig;
 import eu.hansolo.duckinsurance.domain.Claim;
 import eu.hansolo.duckinsurance.domain.ClaimStatus;
 import eu.hansolo.duckinsurance.domain.Customer;
-import eu.hansolo.duckinsurance.domain.DomainException;
 import eu.hansolo.duckinsurance.domain.Duck;
 import eu.hansolo.duckinsurance.domain.Policy;
 import eu.hansolo.duckinsurance.domain.PolicyType;
@@ -32,10 +31,8 @@ import jakarta.inject.Inject;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 /**
  * The DuckInsurance services as MCP tools. The tools call the same CDI services as the REST resources and the Faces beans, in the same process.
@@ -98,65 +95,62 @@ public class DuckTools {
 
     @McpTool(name = "search_owners", description = "Searches duck owners by name or e-mail. Without a query it lists all owners.", readOnlyHint = McpTool.Hint.TRUE)
     public Owners searchOwners(@McpParam(description = "Part of a name or e-mail address") Optional<String> query) {
-        return run(() -> new Owners(customers.list(query.orElse(null)).stream().map(DuckTools::view).toList()));
+        return new Owners(customers.list(query.orElse(null)).stream().map(DuckTools::view).toList());
     }
 
     @McpTool(name = "list_ducks", description = "Lists ducks with breed, age and owner. Optionally only the ducks of one owner.", readOnlyHint = McpTool.Hint.TRUE)
     public Ducks listDucks(@McpParam(description = "Owner id, see search_owners") Optional<Long> ownerId) {
-        return run(() -> new Ducks(ducks.list(ownerId.orElse(null)).stream().map(DuckTools::view).toList()));
+        return new Ducks(ducks.list(ownerId.orElse(null)).stream().map(DuckTools::view).toList());
     }
 
     @McpTool(name = "list_vets", description = "Lists the duck vets with specialty and city.", readOnlyHint = McpTool.Hint.TRUE)
     public Vets listVets() {
-        return run(() -> new Vets(vets.list().stream().map(DuckTools::view).toList()));
+        return new Vets(vets.list().stream().map(DuckTools::view).toList());
     }
 
     @McpTool(name = "list_policies", description = "Lists insurance policies. Optionally only the policies of one duck.", readOnlyHint = McpTool.Hint.TRUE)
     public Policies listPolicies(@McpParam(description = "Duck id, see list_ducks") Optional<Long> duckId) {
-        return run(() -> new Policies(policies.list().stream().filter(p -> duckId.isEmpty() || duckId.get().equals(p.getDuckId())).map(DuckTools::view).toList()));
+        return new Policies(policies.list().stream().filter(p -> duckId.isEmpty() || duckId.get().equals(p.getDuckId())).map(DuckTools::view).toList());
     }
 
     @McpTool(name = "quote_policy", description = "Calculates the yearly premium for a policy without issuing it. The premium depends on the policy type, the coverage, the breed and the age of the duck.", readOnlyHint = McpTool.Hint.TRUE)
     public QuoteView quotePolicy(@McpParam(description = "Duck id") long duckId, @McpParam(description = "Policy type: VET_CARE, PHYSIO, LIFE, LIABILITY or COOP") PolicyType type, @McpParam(description = "Coverage amount in euro") double coverage) {
-        return run(() -> new QuoteView(duckId, type.name(), coverage, policies.quote(duckId, type, BigDecimal.valueOf(coverage)).doubleValue()));
+        return new QuoteView(duckId, type.name(), coverage, policies.quote(duckId, type, BigDecimal.valueOf(coverage)).doubleValue());
     }
 
     @McpTool(name = "issue_policy", description = "Issues a new one-year policy for a duck. Owners under 18 cannot hold a policy. Changes data: the user is asked to confirm first, only call it when the user asked for it.", destructiveHint = McpTool.Hint.FALSE)
-    public ToolResult issuePolicy(@McpParam(description = "Duck id") long duckId, @McpParam(description = "Policy type: VET_CARE, PHYSIO, LIFE, LIABILITY or COOP") PolicyType type, @McpParam(description = "Coverage amount in euro") double coverage, @McpParam(description = "Start date, ISO format 2026-11-24. Default is today") Optional<String> startDate, ToolCall call) {
-        LocalDate start = date(startDate.orElse(null), LocalDate.now());
+    public ToolResult issuePolicy(@McpParam(description = "Duck id") long duckId, @McpParam(description = "Policy type: VET_CARE, PHYSIO, LIFE, LIABILITY or COOP") PolicyType type, @McpParam(description = "Coverage amount in euro") double coverage, @McpParam(description = "Start date, ISO format 2026-11-24. Default is today") Optional<LocalDate> startDate, ToolCall call) {
+        LocalDate start = startDate.orElseGet(LocalDate::now);
         ToolResult ask = confirm(call, "issue_policy", duckId + "|" + type + "|" + coverage + "|" + start, "Issue a " + type + " policy with " + (long) coverage + " euro coverage for duck " + duckId + "?");
         if (ask != null) return ask;
-        return run(() -> done(json(view(policies.issue(duckId, type, BigDecimal.valueOf(coverage), start)))));
+        return done(json(view(policies.issue(duckId, type, BigDecimal.valueOf(coverage), start))));
     }
 
     @McpTool(name = "list_claims", description = "Lists insurance claims, newest first. Optionally only claims with one status.", readOnlyHint = McpTool.Hint.TRUE)
     public Claims listClaims(@McpParam(description = "SUBMITTED, UNDER_REVIEW, APPROVED or REJECTED") Optional<ClaimStatus> status) {
-        return run(() -> new Claims(claims.list(status.orElse(null)).stream().map(DuckTools::view).toList()));
+        return new Claims(claims.list(status.orElse(null)).stream().map(DuckTools::view).toList());
     }
 
     @McpTool(name = "submit_claim", description = "Files a claim against an active policy. A fraud check runs afterwards and moves the claim to UNDER_REVIEW. Changes data: the user is asked to confirm first, only call it when the user asked for it.", destructiveHint = McpTool.Hint.FALSE)
-    public ToolResult submitClaim(@McpParam(description = "Policy id, see list_policies") long policyId, @McpParam(description = "What happened, at least 10 characters") String description, @McpParam(description = "Claimed amount in euro, not above the coverage") double amount, @McpParam(description = "Date of the incident, ISO format 2026-11-24, within the policy period") String incidentDate, @McpParam(description = "Id of the vet who treated the duck, see list_vets") Optional<Long> vetId, ToolCall call) {
+    public ToolResult submitClaim(@McpParam(description = "Policy id, see list_policies") long policyId, @McpParam(description = "What happened, at least 10 characters") String description, @McpParam(description = "Claimed amount in euro, not above the coverage") double amount, @McpParam(description = "Date of the incident, ISO format 2026-11-24, within the policy period") LocalDate incidentDate, @McpParam(description = "Id of the vet who treated the duck, see list_vets") Optional<Long> vetId, ToolCall call) {
         if (description == null || description.strip().length() < 10) throw new ToolExecutionException("The description needs at least 10 characters");
-        LocalDate incident = date(incidentDate, null);
         // The free text is part of what is confirmed (it is in the signed state) but not of the message: texts that look like secrets are refused in elicitation messages
-        ToolResult ask = confirm(call, "submit_claim", policyId + "|" + description.strip() + "|" + amount + "|" + incident + "|" + vetId.orElse(null), "File a claim of " + (long) amount + " euro against policy " + policyId + "?");
+        ToolResult ask = confirm(call, "submit_claim", policyId + "|" + description.strip() + "|" + amount + "|" + incidentDate + "|" + vetId.orElse(null), "File a claim of " + (long) amount + " euro against policy " + policyId + "?");
         if (ask != null) return ask;
-        return run(() -> done(json(view(claims.submit(policyId, description.strip(), BigDecimal.valueOf(amount), incident, vetId.orElse(null))))));
+        return done(json(view(claims.submit(policyId, description.strip(), BigDecimal.valueOf(amount), incidentDate, vetId.orElse(null)))));
     }
 
     @McpTool(name = "decide_claim", description = "Approves or rejects an open claim. Only adjusters and admins may do this. Changes data: the user is asked to confirm first, only call it when the user asked for it.", destructiveHint = McpTool.Hint.TRUE)
     public ToolResult decideClaim(@McpParam(description = "Claim id") long claimId, @McpParam(description = "true to approve, false to reject") boolean approve, @McpParam(description = "Reason for the decision") Optional<String> note, ToolCall call) {
         ToolResult ask = confirm(call, "decide_claim", claimId + "|" + approve + "|" + note.orElse(""), (approve ? "Approve" : "Reject") + " claim " + claimId + "?");
         if (ask != null) return ask;
-        return run(() -> done(json(view(claims.decide(claimId, approve, note.orElse(null))))));
+        return done(json(view(claims.decide(claimId, approve, note.orElse(null)))));
     }
 
     @McpTool(name = "get_stats", description = "Shows the business numbers: owners, ducks, active policies, yearly premium volume and open claims.", readOnlyHint = McpTool.Hint.TRUE)
     public StatsView getStats() {
-        return run(() -> {
-            StatsService.Stats s = stats.current();
-            return new StatsView(s.owners(), s.ducks(), s.activePolicies(), s.annualPremium().doubleValue(), s.openClaims());
-        });
+        StatsService.Stats s = stats.current();
+        return new StatsView(s.owners(), s.ducks(), s.activePolicies(), s.annualPremium().doubleValue(), s.openClaims());
     }
 
     /**
@@ -200,27 +194,6 @@ public class DuckTools {
         c.fraudScore().ifPresent(f -> b.add("fraudScore", f));
         c.decisionNote().ifPresent(n -> b.add("decisionNote", n));
         return b.build();
-    }
-
-    /** Turns business errors into messages the model can read and react to. */
-    private static <T> T run(Supplier<T> action) {
-        try {
-            return action.get();
-        } catch (DomainException e) {
-            throw new ToolExecutionException(e.getMessage());
-        }
-    }
-
-    private static LocalDate date(String text, LocalDate fallback) {
-        if (text == null || text.isBlank()) {
-            if (fallback == null) throw new ToolExecutionException("A date is required, format 2026-11-24");
-            return fallback;
-        }
-        try {
-            return LocalDate.parse(text.trim());
-        } catch (DateTimeParseException e) {
-            throw new ToolExecutionException("'" + text + "' is not a date, use the format 2026-11-24");
-        }
     }
 
     private static OwnerView view(Customer c) {

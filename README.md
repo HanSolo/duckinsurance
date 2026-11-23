@@ -73,7 +73,7 @@ Resources: `customers` (the owners), `customers/{id}/ducks`, `customers/{id}/pol
 
 ## MCP: let an LLM use the app
 
-The WAR contains the [Jakarta MCP server](https://github.com/HanSolo/jakarta-mcp-server) library (`eu.hansolo.mcp:mcp-jakarta:0.9.0`).
+The WAR contains the [Jakarta MCP server](https://github.com/HanSolo/jakarta-mcp-server) library (`eu.hansolo.mcp:mcp-jakarta:1.1.0`).
 `mcp/DuckTools` turns the CDI services into 10 tools (`search_owners`, `list_ducks`, `list_vets`, `list_policies`, `quote_policy`,
 `issue_policy`, `list_claims`, `submit_claim`, `decide_claim`, `get_stats`). The endpoint is `http://localhost:8081/api/mcp` and uses the
 application's own login (HTTP Basic), so roles apply: `customer` cannot decide claims, `adjuster` and `admin` can.
