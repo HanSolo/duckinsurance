@@ -120,7 +120,7 @@ New claims first get the quick rule-based check. The agent runs per claim, when 
 - Settings: `DUCKCLINIC_MCP_URL` (default `http://host.docker.internal:8080/duck-clinic/api/mcp`), `DUCK_FRAUD_AGENT=off` to switch the agent off.
 - The clinic uses host port 8080, so DuckInsurance is published on **8081** (`DUCKINSURANCE_PORT` in `.env`, default 8081). The container itself still listens on 8080, which is why `MCP_SELF_URL` keeps its default. To move the clinic instead, set `DUCKINSURANCE_PORT=8080` and `DUCKCLINIC_MCP_URL`.
 - Demo data: copy `duck-clinic-patch/DataInitializer.java` into the clinic (see `duck-clinic-patch/README.md`), so the insured ducks exist there.
-- **Which model answers:** the agent injects the standard `LargeLanguageModel`. Payara reads its settings through MicroProfile Config: `payara.agentic.llm.provider`, `.model` and `.ollama.base-url`, given as the environment variables the file `META-INF/microprofile-config.properties` fills them from the `LLM_PROVIDER`, `LLM_MODEL` and `LLM_BASE_URL` of `llm.env` (MicroProfile Config property expressions, `${LLM_MODEL:default}`). The key names come from a third-party demo of the Payara source (tag 7.2026.9) and are not in Payara's documentation.
+- **Which model answers:** the agent injects the standard `LargeLanguageModel`. Payara reads its settings through MicroProfile Config: `payara.agentic.llm.provider`, `.model`, `.ollama.base-url`, `.anthropic.base-url` and `.anthropic.api-key`, which `META-INF/microprofile-config.properties` fills from the `LLM_PROVIDER`, `LLM_MODEL`, `LLM_BASE_URL` and `LLM_API_KEY` of `llm.env` (MicroProfile Config property expressions, `${LLM_MODEL:default}`). See "Using a cloud model" for where the names come from.
   The reason shown under the fraud score starts with `[agentic-ai]`. `[rules]` means the model answered but not in the expected JSON format, so a fixed rule judged instead. If the model or the clinic cannot be reached, the claim keeps its rule-based score and the reason says that the agent failed.
 - **What does not use the spec:** the Assistant page (streaming, tool calls and confirmations are outside the draft API, it uses its own client) and the reading of the clinic (MCP client library).
 
@@ -132,15 +132,25 @@ That also works without Docker: set the same names as environment variables or `
 
 | Variable | Meaning | Default |
 |---|---|---|
-| `LLM_BASE_URL` | model server, used by the Assistant and the fraud agent | Ollama on the host |
-| `LLM_MODEL` | model name, used by both | `qwen3.8:27b` |
-| `LLM_API_KEY` | key, Assistant only (any text for Ollama) | `ollama` |
-| `LLM_PROVIDER` | provider of the fraud agent's `LargeLanguageModel` | `ollama` |
+| `LLM_PROVIDER` | provider of the agents' `LargeLanguageModel`: `ollama` or `anthropic` (alias `claude`) | `ollama` |
+| `LLM_BASE_URL` | model server, used by the Assistant and the agents | Ollama on the host |
+| `LLM_MODEL` | model name, used by the Assistant and the agents | `qwen3.8:27b` |
+| `LLM_API_KEY` | key, used by the Assistant and (with `anthropic`) the agents; any text for Ollama | `ollama` |
 | `ANTHROPIC_MAX_TOKENS`, `AGENT_MAX_ROUNDS` | optional limits of the Assistant | 1024, 8 |
 | `DUCKCLINIC_MCP_URL`, `DUCK_FRAUD_AGENT`, `DUCK_CONFIRM_WRITES`, `MCP_SELF_URL` | see `compose.yaml` | |
 
 The older `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` still work for the Assistant. You can also set the `PAYARA_AGENTIC_LLM_*` environment variables directly; they win over the file.
 
 ### Using a cloud model
-- **Assistant:** works with Claude in the cloud: `LLM_BASE_URL=https://api.anthropic.com`, your key and a Claude model name in `llm.env`. The fraud agent shares `LLM_BASE_URL` and `LLM_MODEL`, so for a cloud switch set `PAYARA_AGENTIC_LLM_*` directly for it until its provider keys are known. The client speaks the Anthropic Messages API; other vendors only work through an endpoint with the same API.
-- **Fraud agent:** only `provider=ollama` is confirmed. Which other providers Payara's `LargeLanguageModel` supports and which property carries an API key, I could not find in public documentation. Check the Payara documentation or source (`LlmBackendFactory`) for the key names and add them to `META-INF/microprofile-config.properties` or `llm.env` as `PAYARA_AGENTIC_LLM_...` variables.
+Set these four values in `llm.env` and run `docker compose up -d`:
+
+```
+LLM_PROVIDER=anthropic
+LLM_BASE_URL=https://api.anthropic.com
+LLM_MODEL=<a Claude model name your API account can use>
+LLM_API_KEY=sk-ant-...
+```
+
+- **Assistant:** uses `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL` with its own Messages API client (it ignores `LLM_PROVIDER`).
+- **Fraud and pre-authorization agents:** Payara 7.2026.10 ships an Anthropic backend for the injected `LargeLanguageModel` (`fish.payara.ai.agent.llm.LlmBackendFactory` in `glassfish/modules/agentic-ai-core.jar`). It accepts `payara.agentic.llm.provider` = `ollama`, `anthropic` (or `claude`), `vertex` or `none`, and for Anthropic reads `payara.agentic.llm.anthropic.base-url`, `payara.agentic.llm.anthropic.api-key`, `payara.agentic.llm.model` and `payara.agentic.llm.max-tokens` (default 4096). `META-INF/microprofile-config.properties` maps them from the `LLM_*` values above, so the agents need no code change. These names were read from the Payara jar, not from documentation, and may change in a later Payara release.
+- Never put a real key in `llm.env.example` or in the image.
