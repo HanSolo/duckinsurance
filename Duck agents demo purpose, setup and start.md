@@ -1,6 +1,6 @@
 # Duck agents demo: purpose, setup and start
 
-Nov 23, 2026 · @Han Solo
+Nov 23, 2026, updated Nov 24, 2026 · @Han Solo
 
 ## Purpose
 
@@ -10,16 +10,18 @@ Each step builds on the previous one:
 
 1. **MCP server on the duck-clinic.** The Jakarta MCP server library turns the clinic's existing services into MCP tools. Any MCP client can then read owners, ducks, vets and visits and book a visit, for example Claude CLI after the server is added to it. A separate voice demo does the same: a Swift app takes voice input and calls the Java application duck-voice-agent, whose MCP client reads from the clinic and books an appointment.
 2. **DuckInsurance with an assistant.** A second Jakarta EE application, with its own MCP server and an MCP client. Its chat window (Assistant) lets employees work with the application by chatting instead of using the web pages. Anything that changes data is confirmed by the user first.
-3. **A fraud agent.** For a claim, an agent asks the clinics what they have on record, compares that with the insurer's own data and gives the claim a score from 0 to 100 and a reason. The adjuster still decides to approve or decline.
+3. **A fraud agent.** For a claim, an agent asks the clinics what they have on record, compares that with the insurer's own data and gives the claim a score from 0 to 100 and a reason. Code first looks for patterns across all claims (the same wording, the same invoice twice, a very young policy, an amount near the limit, and more), and the model may ask for up to three extra read-only checks before it answers. The adjuster still decides to approve or decline.
 4. **Agent to agent.** The third application, the Duck Physical Therapy Clinic, is a Quarkus application with the Quarkus MCP server, not Jakarta EE. Three agents in three applications decide together whether a duck needs further therapy and, if so, which sessions the insurer pays and which are booked.
 
 The idea behind step 4: each institution keeps its own data, rules and limits, and only MCP calls cross between them. Code enforces the limits; the language model only chooses inside them.
+
+For a live audience, an `admin` of DuckInsurance can switch steps 2 to 4 on and off with three small switches at the bottom of the sidebar (**AI**, **Fraud**, **A2A**), so the story can start with a plain Jakarta EE application.
 
 ## The applications
 
 Three applications make up the demo: two Jakarta EE applications on Payara 7 and one Quarkus application. Each has its own data, MCP server, MCP client and agent.
 
-&#91;embedded content: how the three applications call each other\]
+![How the three applications call each other: only MCP calls cross between them, every agent calls the configured LLM](duck-agents-architecture.png)
 
 The clinic and the therapy clinic call each other during a referral, the therapy clinic asks the insurer to pay, and the insurer's fraud agent reads both clinics.
 
@@ -29,16 +31,16 @@ The clinic and the therapy clinic call each other during a referral, the therapy
 | DuckInsurance | Policies and claims; Assistant chat; fraud check; pre-authorization | Jakarta EE 11, Payara 7 | 8081 | `http://localhost:8081/api/mcp` | Pre-authorization agent, fraud agent |
 | Duck Physical Therapy Clinic | Treatments, therapists and appointments | Quarkus 3 with the Quarkus MCP server | 8082 | `http://localhost:8082/mcp` | Therapy agent |
 
-The two Jakarta EE applications use the Jakarta MCP server library (`eu.hansolo.mcp:mcp-jakarta` 1.1.0, Maven Central) and the Jakarta MCP client (`eu.hansolo.mcp:mcp-jakarta-client` 0.3.0). Their agents use the draft Jakarta Agentic AI API that ships with Payara 7.2026.8 or newer. Quarkus has no runtime for that API, so the therapy agent has the same steps as plain Java methods.
+The two Jakarta EE applications use the Jakarta MCP server library (`eu.hansolo.mcp:mcp-jakarta` 1.1.0, Maven Central) and the Jakarta MCP client (`eu.hansolo.mcp:mcp-jakarta-client` 0.3.0). Their agents use the draft Jakarta Agentic AI API that ships with Payara 7.2026.8 or newer. Each application supplies its own language model client, configured in `llm.env`, so the same model setting works with a local Ollama, the Claude API or any OpenAI-format service. Quarkus has no runtime for that API, so the therapy agent has the same steps as plain Java methods.
 
 ## Requirements
 
-The shortest path needs Docker with Compose, a local Ollama with a model, and three free ports. Everything else is optional.
+The shortest path needs Docker with Compose, a language model (a local Ollama, a Claude API key or an OpenAI-format service) and three free ports. Everything else is optional.
 
 | Requirement | Needed for | Notes |
 | --- | --- | --- |
-| Docker with Compose 2.24 or newer | Running the three applications in containers | The compose files use `env_file` with `required: false`, which needs 2.24. The first build downloads Maven dependencies and the base images, so it needs internet |
-| Ollama 0.14 or newer | The language model of all agents and of the Assistant | Default model `qwen3.8:27b`, loaded with `ollama pull qwen3.8:27b`. A 27B model needs a machine with plenty of memory; set `LLM_MODEL` to use a smaller one |
+| Docker with Compose 2.24 or newer | Running the three applications in containers | Docker Desktop, or Docker Engine with the Compose plugin on Linux. The compose files use `env_file` with `required: false`, which needs 2.24. The first start downloads the images, so it needs internet |
+| A language model | All agents and the Assistant | One of: Ollama 0.14 or newer (default model `qwen3.8:27b`, `ollama pull qwen3.8:27b`, needs plenty of memory); the Claude API with a key; an OpenAI-format service such as OpenAI, Groq, OpenRouter or Mistral. Free tiers have small rate limits, use a paid tier for demos |
 | Free ports 8080, 8081, 8082 | Clinic, insurer, therapy clinic | The insurer's Payara admin console also uses 4848 |
 | JDK 21 or newer and Maven | Building and running without Docker; building duck-voice-agent | The clinic and the therapy clinic compile for release 21 |
 | Payara 7.2026.8 or newer | The draft Jakarta Agentic AI API | The Docker images use 7.2026.10 |
@@ -46,27 +48,43 @@ The shortest path needs Docker with Compose, a local Ollama with a model, and th
 | Node.js 20 or newer | Optional: `scripts/duckchat.mjs`, a terminal chat against the insurer |  |
 | Claude CLI (Claude Code) | Optional: using the clinic's MCP server from a terminal |  |
 
-On Linux, start Ollama with `OLLAMA_HOST=0.0.0.0 ollama serve`, so the containers can reach it. Docker Desktop needs nothing.
+With Ollama on Linux, start it with `OLLAMA_HOST=0.0.0.0 ollama serve`, so the containers can reach it. Docker Desktop needs nothing.
 
 ## Setup
 
-Setup is one model setting repeated in three projects. The defaults already wire the applications to each other when all three run in Docker on the same machine.
+There are two ways to run the demo. Sales people and anyone who only wants to show it use the **demo launcher**; developers who change the code run the three projects **from source**.
+
+### With the demo launcher (prebuilt images)
+
+The folder `duck-agents-demo` holds one `compose.yaml` for all three applications, one shared `llm.env`, and start, stop and reset scripts for macOS (`.command`), Windows (`.bat`) and Linux (`.sh`). The images are prebuilt and published by the maintainer, so nothing is compiled on the laptop.
+
+1. Install Docker Desktop (or Docker Engine with Compose on Linux) and start it once.
+2. Double-click `start-demo` (`./start-demo.sh` on Linux). The first time it creates `llm.env` from `llm.env.example` and opens it: fill in the model settings (below) and start again.
+3. The script checks Docker, downloads the newest images, starts the three applications and opens them in the browser. `stop-demo` stops them; `reset-demo` also deletes the therapy clinic's bookings.
+
+The launcher's own `README.md` (for sales) and `MAINTAINER.md` (images, `.env`, licensing, keys) have the details.
+
+### From source
 
 1. Put the three project folders side by side: the duck clinic (`duck-clinic-a2a`), DuckInsurance (`duckinsurance-a2a`) and the Duck Physical Therapy Clinic (`duckphysicaltherapyclinic-a2a`).
-2. Start Ollama and load the model: `ollama pull qwen3.8:27b`.
+2. If you use Ollama, start it and load the model: `ollama pull qwen3.8:27b`.
 3. In each project, copy `llm.env.example` to `llm.env`. Use the same values in all three, so every agent talks to the same model. No rebuild is needed after changing the file; run `docker compose up -d` again.
 
-```
-LLM_BASE_URL=http://host.docker.internal:11434
-LLM_MODEL=qwen3.8:27b
-LLM_PROVIDER=ollama
-```
+### Model settings (`llm.env`)
 
-DuckInsurance also reads `LLM_API_KEY` for its Assistant; for Ollama any text works. Only the provider `ollama` is verified for the fraud and pre-authorization agents.
+The same keys work in the launcher and in every project.
 
-4. Leave `AGENT_SECRET` at its default (`duck-agent-demo`) unless you want another value. The clinic and therapy agents use it to call the insurer's partner tools, so the same value must reach all three applications.
+| | `LLM_PROVIDER` | `LLM_BASE_URL` | `LLM_MODEL` | `LLM_API_KEY` |
+| --- | --- | --- | --- | --- |
+| Local Ollama (default) | `ollama` | `http://host.docker.internal:11434` | `qwen3.8:27b` | any text |
+| Claude | `anthropic` | `https://api.anthropic.com` | a Claude model name | Anthropic API key |
+| OpenAI format | `openai` | the service URL with `/v1`, for example `https://api.openai.com/v1` or `https://api.groq.com/openai/v1` | that service's model name | that service's key |
 
-The databases are created with seed data at every start, so there is nothing to import. These settings can be changed in each project's `compose.yaml` or `docker-compose.yml`:
+Optional: `LLM_MAX_TOKENS` (with `anthropic` the default is 4096; with `openai` no limit is sent unless it is set). All three providers work for the agents and for the Assistant. How well a model uses tools and follows the JSON instructions depends on the model; small local models often stop after one step.
+
+Leave `AGENT_SECRET` at its default (`duck-agent-demo`) unless you want another value. The clinic and therapy agents use it to call the insurer's partner tools, so the same value must reach all three applications.
+
+The databases are created with seed data, so there is nothing to import. These settings can be changed in each project's `compose.yaml` or `docker-compose.yml` (in the launcher, the switch start values are in its `.env`):
 
 | Setting | Application | Default |
 | --- | --- | --- |
@@ -75,12 +93,13 @@ The databases are created with seed data at every start, so there is nothing to 
 | `PHYSIOCLINIC_MCP_URL` | DuckInsurance | `http://host.docker.internal:8082/mcp` |
 | `DUCKCLINIC_REST_URL`, `PHYSIOCLINIC_REST_URL` | DuckInsurance | `http://host.docker.internal:8080/duck-clinic/api`, `http://host.docker.internal:8082/api` |
 | `THERAPY_MCP_URL` | Duck Clinic | `http://host.docker.internal:8082/mcp` |
-| `DUCK_FRAUD_AGENT` | DuckInsurance | `on` (`off` uses only the rule-based check) |
+| `DUCK_ASSISTANT`, `DUCK_FRAUD_AGENT`, `DUCK_AGENTS_TAB` | DuckInsurance | `on`; start values of the **AI**, **Fraud** and **A2A** switches (`off` hides the Assistant, the fraud agent or the Agents page until an admin switches it on) |
+| `DUCK_FRAUD_INVESTIGATE` | DuckInsurance | `on` (`off`: the fraud agent keeps the pattern signals but answers after one model call, for small rate limits) |
 | `DUCK_CONFIRM_WRITES` | DuckInsurance | `if-supported` (also `always`, `off`) |
 
 ## Starting the applications
 
-Start Ollama first, then the three applications with Docker Compose, each in its own terminal. The order does not matter much, because the applications only call each other when a referral or a check runs.
+With the launcher, `start-demo` does all of this and opens the browser. From source, start Ollama first (if you use it), then the three applications with Docker Compose, each in its own terminal. The order does not matter much, because the applications only call each other when a referral or a check runs.
 
 ```
 # in each project folder
@@ -95,7 +114,7 @@ The first build takes a few minutes. Wait for the log line that says the applica
 | DuckInsurance | `http://localhost:8081` | `admin/admin`, `adjuster/adjuster`, `customer/customer` |
 | Duck Physical Therapy Clinic | `http://localhost:8082` (MCP `/mcp`, REST `/api`) | none |
 
-Stop an application with `docker compose down` in its folder. The clinic and the insurer reset their data at every start, so bookings made through MCP are gone after a restart. The therapy clinic keeps its H2 database in the Docker volume `clinic-data`; run `docker compose down -v` to re-seed it. It is seeded with 3 owners, 6 ducks, 2 therapists and 6 treatments, among them Sir Quacksalot and his owner Anna Keller. The therapy clinic also has a small web UI at `http://localhost:8082` for booking sessions, finding appointments and browsing treatments.
+Stop an application with `docker compose down` in its folder. The clinic and the insurer create fresh data whenever their container is new, so bookings made through MCP are gone after `docker compose down` and up again. If Docker only restarts an existing container (for example after a computer restart), the insurer keeps its data and does not seed it a second time. The therapy clinic keeps its H2 database in the Docker volume `clinic-data`; run `docker compose down -v` to re-seed it. It is seeded with 3 owners, 6 ducks, 2 therapists and 6 treatments, among them Sir Quacksalot and his owner Anna Keller. The therapy clinic also has a small web UI at `http://localhost:8082` for booking sessions, finding appointments and browsing treatments.
 
 **Without Docker.** The clinic starts with `mvn clean package payara-server:start`; `liberty:run` and `wildfly:run -Pwildfly` also work. DuckInsurance builds with `mvn package` and runs on Payara Micro 7 with `java -jar payara-micro.jar --deploy target/duckinsurance.war`. The therapy clinic starts with `mvn quarkus:dev` and listens on 8082. The two Jakarta EE applications then both listen on 8080 by default, so give each its own port and set the URL settings from the Setup table to match.
 
@@ -121,11 +140,21 @@ Sign in as `adjuster`, open **Assistant** and ask for something, for example "Ap
 
 ### 3. The fraud agent
 
-Sign in as `customer` and file a claim against a vet-care policy. Sign out and sign in as `adjuster`, open **Claims** and press **Check**. The agent reads the visits from the clinic, the model gives a score and a reason, and the reason starts with `[agentic-ai]` when the agent decided. If the agent proposes a therapy booking, an adjuster or admin presses **Book it**; the agent never books by itself.
+Needs the **Fraud** switch on. Sign in as `adjuster` (or `admin`), open **Claims** and press **Check** on an open vet-care or physiotherapy claim, then **Refresh**. The agent reads the records of both clinics, the insurer's code looks for patterns across all claims, and the model gives a score and a reason that starts with `[agentic-ai]`. If more evidence could change its score, the model asks for up to three checks from a fixed list (the owner's other claims, similar claims, the owner's policies, the owner's other ducks at the clinic, other claims naming the same vet); the code runs them read only and the model answers once more.
+
+The result is one line under the score, for example "No clinic has a record near the incident. 6 signals · 3 checks". Click it to open the full reason, each signal and what each check found. The same steps appear on the **Agents** page under the claim number.
+
+The demo data has three prepared cases:
+
+- **Waddles** (Marcus Webb): a second arthritis claim. The code flags the repeat, but the clinic has both visits, so the score is low.
+- **Sir Quacksalot**, "Fishing hook removal" (CLM-00010): the clinic has the surgery, but the same surgery was already claimed and paid. High score.
+- **Admiral Beak** and **Puddles** (Samuel Okafor): almost the same wording, policies two weeks old, amounts near the limit, an earlier rejected claim and no clinic record. High score.
+
+You can also sign in as `customer`, file a claim against a vet-care policy, and check it as `adjuster`. If the agent proposes a therapy booking, an adjuster or admin presses **Book it**; the agent never books by itself.
 
 ### 4. Agent to agent: the referral
 
-Sign in to DuckInsurance as `adjuster`, open **Agents** and start the referral for Sir Quacksalot, owned by Anna Keller. The page merges the logs of all three agents into one conversation and refreshes every 2 seconds. The referral id (REF-0001) travels through every call.
+Needs the **A2A** switch on. Sign in to DuckInsurance as `adjuster`, open **Agents** and start the referral for Sir Quacksalot, owned by Anna Keller. The page merges the logs of all three agents into one conversation and refreshes every 2 seconds. The referral id (REF-0001) travels through every call.
 
 To start it from a terminal instead, post the duck and the owner's consent. The answer is 202 with a referral id, and the conversation follows in `/duck-clinic/api/agent/log`.
 
@@ -175,7 +204,11 @@ Most problems come from the model server not being reachable or from a port that
 
 | Symptom | Likely cause | What to do |
 | --- | --- | --- |
-| Assistant shows a red model dot | The container cannot reach Ollama | Check `ollama --version` (0.14 or newer) and `LLM_BASE_URL`; on Linux start Ollama with `OLLAMA_HOST=0.0.0.0` |
+| Assistant shows a red model dot | The container cannot reach the model | Check `LLM_PROVIDER`, `LLM_BASE_URL` and `LLM_API_KEY` in `llm.env`. For Ollama: `ollama --version` (0.14 or newer); on Linux start it with `OLLAMA_HOST=0.0.0.0` |
+| Assistant, Claims check or Agents page is missing | Its demo switch is off | Sign in as `admin` and switch **AI**, **Fraud** or **A2A** on at the bottom of the sidebar |
+| "The model returned no answer" | A thinking model used the whole answer limit | Raise `LLM_MAX_TOKENS`, or for Ollama use `LLM_PROVIDER=ollama`, which switches thinking off |
+| An error mentions a rate limit (HTTP 429) | The model service's free tier is used up for the minute | The agents wait up to 30 seconds and retry once. Check one claim at a time, use a paid tier, or set `DUCK_FRAUD_INVESTIGATE=off` |
+| No details open under a fraud score | The insurer was restarted since the check; the details live in memory | Press **Check** again |
 | First answer takes very long | Ollama is loading the model | Ask one question before the audience arrives |
 | Claims page shows a clinic as unreachable | The clinic is not running or the URL is wrong | Check ports 8080 and 8082 and the `*_MCP_URL` settings |
 | Fraud reason starts with `[rules]` | The model did not answer in the expected JSON, so a fixed rule decided | Run the check again or try another model |
@@ -187,4 +220,5 @@ Most problems come from the model server not being reachable or from a port that
 - Authentication is demo grade: the clinics' MCP endpoints are open, the insurer's partner tools use a shared secret, and the accounts have plain-text passwords. Keep everything on localhost.
 - The model decides, so two runs of the same referral can differ.
 - Ducks are matched across the applications by owner last name plus duck name. Two owners with the same last name and a duck of the same name would be confused.
-- The Jakarta Agentic AI API is a draft and may change. The property names for the Payara model settings come from a third-party demo, not from Payara's documentation.
+- The Jakarta Agentic AI API is a draft and may change. Payara 7.2026.10 has no OpenAI backend, so the applications supply their own model client instead of Payara's model settings.
+- The fraud agent's pattern signals are hints computed by simple rules (for example word overlap for "same wording"), not proof. The details under a score live in memory and are gone after a restart.

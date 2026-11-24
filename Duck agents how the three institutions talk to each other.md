@@ -1,6 +1,6 @@
 # Duck agents: how the three institutions talk to each other
 
-Nov 21, 2026 · @Han Solo
+Nov 21, 2026, updated Nov 24, 2026 · @Han Solo
 
 ## Overview
 
@@ -15,10 +15,10 @@ Each agent decides inside limits that the code enforces. The model chooses withi
 | Institution | App | Agent | What it decides | Limits the code enforces |
 | --- | --- | --- | --- | --- |
 | Duck clinic (the vet) | Jakarta EE on Payara 7, DuckDB, port 8080 (`/duck-clinic`) | Clinic Agent (`ReferralAgent`, Jakarta Agentic AI) | Whether to refer the duck, and for how many sessions | Owner consent on file, at most 6 sessions, a visit in the last 90 days, no open referral for the same duck |
-| Duck physical therapy clinic | Quarkus 3, port 8082 | Therapy Agent (`TherapyAgent`, plain steps with its own Ollama client) | Which treatment and therapist fit the diagnosis, and how many sessions | At most the requested sessions and never more than 6, one treatment and one therapist from the catalogue, working days 08:00 to 18:00, sessions at least 2 days apart, first session at least 2 days ahead, only approved sessions are booked |
+| Duck physical therapy clinic | Quarkus 3, port 8082 | Therapy Agent (`TherapyAgent`, plain steps with its own model client) | Which treatment and therapist fit the diagnosis, and how many sessions | At most the requested sessions and never more than 6, one treatment and one therapist from the catalogue, working days 08:00 to 18:00, sessions at least 2 days apart, first session at least 2 days ahead, only approved sessions are booked |
 | DuckInsurance | Jakarta EE 11 on Payara 7, port 8081 (`/api/mcp`) | Insurance Agent (`PreauthAgent`, Jakarta Agentic AI) | How many sessions to approve, from 0 up to the number the rules allow | Active PHYSIO policy, 14-day waiting period, referral document required, at most 6 sessions, at most 75 EUR per session, remaining coverage not exceeded, first session within 30 days |
 
-All three agents use the same local Ollama model and the same pattern. The clinic and the insurer use the Jakarta Agentic AI API (trigger, action, decision, outcome), which Payara runs. Quarkus has no runtime for that API, so the therapy agent has the same steps as plain methods.
+All three agents use the same pattern and the same language model, set once in `llm.env`: a local Ollama, the Claude API or an OpenAI-format service. The clinic and the insurer use the Jakarta Agentic AI API (trigger, action, decision, outcome), which Payara runs. Quarkus has no runtime for that API, so the therapy agent has the same steps as plain methods.
 
 ## How the three institutions interact
 
@@ -26,9 +26,9 @@ All three agents use the same local Ollama model and the same pattern. The clini
 
 Read it top to bottom. Solid arrows are calls, dashed arrows are replies, and the two highlighted replies are the insurer and the clinic asking back inside the same call before it can be answered. Messages 1 to 13 are the referral, from the vet's question to the first claim. Messages 14 to 18 are the cancellation after the first session.
 
-&#91;embedded content: architecture view · 3 institutions, 3 agents, 4 MCP calls\]
+![Architecture view: 3 institutions, 3 agents, 4 MCP calls](duck-agents-architecture.png)
 
-The same system seen as architecture instead of conversation. Each institution is a closed box with its own agent, its own MCP server and client, and its own call to the local LLM. The four teal arrows are the only places where data crosses an institution boundary, and the tool name on each arrow says what is asked.
+The same system seen as architecture instead of conversation. Each institution is a closed box with its own agent, its own MCP server and client, and its own call to the configured LLM. The four teal arrows are the only places where data crosses an institution boundary, and the tool name on each arrow says what is asked.
 
 ## The conversation step by step
 
@@ -48,14 +48,17 @@ When the insurer's model takes longer than the connection stays open, the Therap
 
 ## The fraud agent in DuckInsurance
 
-DuckInsurance has a fourth agent, the fraud agent. It is not part of the referral conversation: it judges claims, whether they come from the Therapy Agent or from an adjuster. Every new claim first gets an automatic rule-based score. The agent runs only when an adjuster presses Check on a claim.
+DuckInsurance has a fourth agent, the fraud agent. It is not part of the referral conversation: it judges claims, whether they come from the Therapy Agent or from an adjuster. Every new claim first gets an automatic rule-based score. The agent runs only when an adjuster presses Check on a claim, and only while the **Fraud** demo switch is on.
 
-&#91;embedded content: fraud agent workflow · 4 steps, 2 clinics, 1 fallback\]
+![Fraud agent workflow: 4 steps, 2 clinics, pattern signals, up to 3 checks, 1 fallback](duck-fraud-agent.png)
 
 - **Trigger and action.** The Check button fires a CDI event. The agent finds the duck by owner last name and duck name in both clinics and reads its visits and appointments over MCP. It keeps only records within 14 days of the incident. A clinic it cannot reach is unknown, not suspicious.
-- **Decision.** The model gets the claim and the records and answers with JSON: a score from 0 (plausible) to 100 (very suspicious), a reason, and optionally a treatment and a therapist. The code clamps the score to 0 to 100, and if the answer cannot be read, a rule decides.
-- **Outcome.** The score and reason are stored on the claim, which stays under review. If neither clinic has the treatment but the duck is a patient of the therapy clinic, the agent adds a booking proposal that an adjuster can accept.
-- **Errors.** Without any reachable clinic the claim keeps the rule-based score and says so. Any other failure is noted on the claim and the earlier score stays.
+- **Pattern signals.** Before the model is asked, the insurer's code compares the claim with all other claims and lists facts: almost the same wording as another claim, the same duck claimed again within 7 days with almost the same amount (the same invoice twice) or a different one (one treatment split up), an earlier rejected claim of the owner, other claims for the same duck or the owner's other ducks within 90 days, an incident within 30 days of the policy start, an amount of 90% of the coverage or more, and an amount of at least twice the usual for that policy type. Code counts, because a model is unreliable at comparing many records; the model only weighs the signals, and a matching clinic record outweighs a repeat claim unless the same invoice may have been claimed twice.
+- **Decision, with investigation.** The model gets the claim, the records and the signals and answers with JSON: a score from 0 (plausible) to 100 (very suspicious), a reason, optionally a treatment and a therapist, and optionally up to three checks it wants from a fixed list: the owner's other claims, similar claims of any owner, the owner's policies, the owner's other ducks at the clinic, other claims naming the same vet. The code runs those checks read only and asks the model once more with the evidence. Unknown names are ignored. Because this is plain text in and out rather than tool calling, it works the same with every model provider. The code clamps the score to 0 to 100, and if the answer cannot be read, a rule decides.
+- **Outcome.** The score and reason are stored on the claim, which stays under review. In the claim list the result is one line with the number of signals and checks; a click opens the full reason, each signal and what each check found. If neither clinic has the treatment but the duck is a patient of the therapy clinic, the agent adds a booking proposal that an adjuster can accept.
+- **Errors.** Without any reachable clinic the claim keeps the rule-based score and says so. If only the second model call fails, for example on a rate limit, the first answer counts and the details say why. Any other failure is noted on the claim and the earlier score stays.
+
+The demo data contains three prepared cases: a repeat claim for Waddles that the clinic confirms (low score), Sir Quacksalot's hook surgery claimed a second time (high score), and two near-identical emergency claims for Samuel Okafor's ducks with young policies, an earlier rejection and no clinic record (high score).
 
 ## How an agent decides
 
@@ -90,12 +93,12 @@ The agents talk through MCP tools over Streamable HTTP, using the stateless 2026
 
 ## Watching it run, and known limits
 
-The **Agents** page in DuckInsurance (sign in as an adjuster) merges the in-memory logs of all three agents into one conversation, newest at the bottom, and refreshes every 2 seconds. Each entry shows who spoke, to whom, and its kind: REQUEST, ANSWER, THOUGHT, POLICY, ACTION or ERROR. The buttons start the referral for Sir Quacksalot (the full path) or for Don Quixote (the clinic declines by its own rule), complete the next session, cancel the referral and reset the logs. Completing and cancelling are available only once a referral is scheduled.
+The **Agents** page in DuckInsurance (sign in as an adjuster; an admin shows or hides it with the **A2A** switch) merges the in-memory logs of all three agents into one conversation, newest at the bottom, and refreshes every 2 seconds. Each entry shows who spoke, to whom, and its kind: REQUEST, ANSWER, THOUGHT, POLICY, ACTION or ERROR. The buttons start the referral for Sir Quacksalot (the full path) or for Don Quixote (the clinic declines by its own rule), complete the next session, cancel the referral and reset the logs. Completing and cancelling are available only once a referral is scheduled.
 
 Known limits of the demo:
 
 - The model decides, so two runs can differ. The insurer may deny a plan that the therapy agent considers fitting, and the policy texts steer this.
 - The insurer's model call can take longer than a connection stays open. The Therapy Agent then polls `get_preauthorization` for the stored answer.
-- State and logs are kept in memory and are lost on restart.
+- State and logs are kept in memory and are lost on restart, and so are the details under a fraud score (the score and reason stay).
 - Ducks are matched by owner last name and duck name, and the clinics' MCP endpoints have no authentication yet.
 - Cancelling works only for a scheduled referral, not while the therapy agent is still planning. Not built yet: per-agent authentication between all three apps.
