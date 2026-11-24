@@ -43,6 +43,8 @@ public class DataSeeder {
 
     @Transactional
     void seed(@Observes Startup event) {
+        // A server restart without a fresh database (seen on a local Payara) would seed everything twice, and the twins would look like fraud patterns
+        if (!customers.list(null).isEmpty()) return;
         LocalDate today = LocalDate.now();
 
         Customer anna = customers.create(new Customer("Anna", "Keller", "anna.keller@example.com", LocalDate.of(1989, 4, 12), "Zurich"));
@@ -75,6 +77,10 @@ public class DataSeeder {
         Policy duckyLiability = policies.issue(duckyMcDuckface.getId(), PolicyType.LIABILITY, new BigDecimal("50000"), today.minusDays(20));
         Policy admiralCoop = policies.issue(admiralBeak.getId(), PolicyType.COOP, new BigDecimal("15000"), today.minusDays(60));
         policies.issue(puddles.getId(), PolicyType.LIFE, new BigDecimal("1500"), today.minusDays(60));
+        // Cases for the fraud agent's pattern recognition (the DuckClinic's DataInitializer is written to match)
+        Policy waddlesVet = policies.issue(waddles.getId(), PolicyType.VET_CARE, new BigDecimal("3000"), today.minusDays(120));
+        Policy admiralVet = policies.issue(admiralBeak.getId(), PolicyType.VET_CARE, new BigDecimal("2000"), today.minusDays(18));
+        Policy puddlesVet = policies.issue(puddles.getId(), PolicyType.VET_CARE, new BigDecimal("2000"), today.minusDays(14));
 
         Claim hook = claimService.submit(sirQuacksalotVet.getId(), "Sir Quacksalot swallowed a fishing hook, emergency surgery and X-rays", new BigDecimal("1800"), today.minusDays(40), dewey.getId());
         Claim pipe = claimService.submit(admiralCoop.getId(), "Burst pipe flooded the coop and the pump house of the duck pond", new BigDecimal("6500"), today.minusDays(25), null);
@@ -85,9 +91,19 @@ public class DataSeeder {
         claimService.submit(duchessPhysio.getId(), "Six hydrotherapy sessions after a leg strain", new BigDecimal("510"), today.minusDays(18), null);
         claimService.submit(quixoteVet.getId(), "Wing fracture surgery and physiotherapy for an elderly Muscovy", new BigDecimal("3400"), today.minusDays(30), mabel.getId());
 
+        // Plausible repeat: REPEAT_DUCK fires, but the DuckClinic has both visits
+        Claim waddlesFirst = claimService.submit(waddlesVet.getId(), "Arthritis flare in the left foot, X-ray and anti-inflammatory course", new BigDecimal("420"), today.minusDays(50), pip.getId());
+        claimService.submit(waddlesVet.getId(), "Follow-up of the arthritis: joint injection and check of the left foot", new BigDecimal("380"), today.minusDays(12), pip.getId());
+        // Paid twice? The hook surgery was approved already; this second claim names the same surgery one day later with almost the same amount (DUPLICATE_INVOICE, SAME_WORDING)
+        claimService.submit(sirQuacksalotVet.getId(), "Fishing hook removal, emergency surgery and X-rays", new BigDecimal("1750"), today.minusDays(39), dewey.getId());
+        // Organised pattern: same wording, young policies, amounts near the limit, an earlier rejected claim of the owner, and no record in either clinic
+        claimService.submit(admiralVet.getId(), "Emergency surgery after a fox attack, wing and crop repair", new BigDecimal("1900"), today.minusDays(7), null);
+        claimService.submit(puddlesVet.getId(), "Emergency surgery after a fox attack, wing and crop repair with X-rays", new BigDecimal("1950"), today.minusDays(5), null);
+
         // Two historic decisions, written directly so that seeding does not depend on the caller's role
         decide(hook, ClaimStatus.APPROVED, "Covered, invoice verified");
         decide(pipe, ClaimStatus.REJECTED, "Damage predates policy start according to inspection report");
+        decide(waddlesFirst, ClaimStatus.APPROVED, "Covered, clinic visit confirmed");
     }
 
     private void decide(Claim claim, ClaimStatus status, String note) {

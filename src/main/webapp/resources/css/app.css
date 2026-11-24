@@ -200,3 +200,19 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 .demo-switches a { flex: 1; text-align: center; font: 10px var(--mono); padding: 2px 0; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); }
 .demo-switches a.on { color: var(--accent); border-color: var(--accent); }
 .demo-switches a.off { text-decoration: line-through; }
+
+/* Collapsible fraud check result in the claim list (fraud agent investigation) */
+.check-result { max-width: 360px; position: relative; }
+/* The details float over the rows below instead of widening the column, so the table keeps its shape */
+.check-result .check-body { position: absolute; right: 0; top: calc(100% + 4px); width: 480px; max-width: 70vw; max-height: 420px; overflow-y: auto; z-index: 20; padding: 10px 12px; background: var(--panel-2, #1a2333); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.45); }
+.check-result > summary { cursor: pointer; list-style: none; }
+.check-result > summary::-webkit-details-marker { display: none; }
+.check-result > summary::before { content: "▸ "; }
+.check-result[open] > summary::before { content: "▾ "; }
+.check-result .trail-count { white-space: nowrap; font-weight: 600; }
+.check-result .trail { margin-top: 6px; padding: 6px 8px; border-left: 3px solid var(--border); font-size: 12px; }
+.check-result .trail ul { margin: 2px 0 6px 0; padding-left: 16px; }
+.check-result .trail li { margin: 2px 0; }
+.check-result .trail-head { font-weight: 600; margin-top: 4px; }
+.check-result .trail-code { font-size: 11px; padding: 0 4px; border-radius: 3px; background: rgba(127,127,127,.15); }
+.check-result .trail-found { white-space: pre-line; opacity: .8; margin-top: 2px; }

@@ -133,7 +133,14 @@ public class ConfiguredLlm implements LargeLanguageModel {
         final HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(url)).timeout(TIMEOUT).header("content-type", "application/json");
         headers.forEach((name, value) -> request.header(name, ((jakarta.json.JsonString) value).getString()));
         try {
-            final HttpResponse<String> response = http.send(request.POST(HttpRequest.BodyPublishers.ofString(body.toString())).build(), HttpResponse.BodyHandlers.ofString());
+            final HttpRequest          built    = request.POST(HttpRequest.BodyPublishers.ofString(body.toString())).build();
+            HttpResponse<String>       response = http.send(built, HttpResponse.BodyHandlers.ofString());
+            // Rate limit (Groq's free tier, a busy Claude account): wait as long as the server asks, at most 30 seconds, and try once more
+            final long wait = response.statusCode() == 429 ? response.headers().firstValue("retry-after").map(ConfiguredLlm::seconds).orElse(10L) : -1;
+            if (wait >= 0 && wait <= 30) {
+                Thread.sleep(wait * 1000 + 250);
+                response = http.send(built, HttpResponse.BodyHandlers.ofString());
+            }
             if (response.statusCode() / 100 != 2) { throw new LLMException("The model server at " + url + " answered HTTP " + response.statusCode() + ": " + response.body()); }
             return Json.createReader(new StringReader(response.body())).readObject();
         } catch (IOException e) {
@@ -142,6 +149,10 @@ public class ConfiguredLlm implements LargeLanguageModel {
             Thread.currentThread().interrupt();
             throw new LLMException("Interrupted while waiting for the model", e);
         }
+    }
+
+    private static long seconds(final String retryAfter) {
+        try { return (long) Math.ceil(Double.parseDouble(retryAfter.trim())); } catch (NumberFormatException e) { return 31; }
     }
 
     private static JsonObjectBuilder user(final String prompt) {

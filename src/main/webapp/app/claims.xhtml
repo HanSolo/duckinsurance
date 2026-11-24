@@ -51,7 +51,19 @@
                             <td>#{c.description}<h:panelGroup rendered="#{c.decisionNote != null}"><div class="muted note">#{c.decidedBy}: #{c.decisionNote}</div></h:panelGroup></td>
                             <td class="mono"><h:outputText value="#{c.amount}"><f:convertNumber pattern="€#,##0.00"/></h:outputText></td>
                             <td>
-                                <h:panelGroup rendered="#{c.fraudScore != null}"><span class="meter risk-#{c.fraudScore ge 60 ? 'high' : (c.fraudScore ge 30 ? 'mid' : 'low')}"><i style="width: #{c.fraudScore}%"></i></span> <span class="mono">#{c.fraudScore}</span><h:panelGroup rendered="#{c.fraudReason != null}"><div class="muted note">#{claimsBean.reason(c)}</div></h:panelGroup><h:panelGroup rendered="#{c.proposal != null}"><div class="note proposal">#{claimsBean.proposalText(c)}<br/>
+                                <h:panelGroup rendered="#{c.fraudScore != null}"><span class="meter risk-#{c.fraudScore ge 60 ? 'high' : (c.fraudScore ge 30 ? 'mid' : 'low')}"><i style="width: #{c.fraudScore}%"></i></span> <span class="mono">#{c.fraudScore}</span><h:panelGroup rendered="#{c.fraudReason != null and not claimsBean.collapsible(c)}"><div class="muted note">#{claimsBean.reason(c)}</div></h:panelGroup><h:panelGroup rendered="#{claimsBean.collapsible(c)}"><details class="check-result">
+                                    <summary class="muted note">#{claimsBean.shortReason(c)} <span class="trail-count">#{claimsBean.trailSummary(c)}</span></summary>
+                                    <div class="check-body"><div class="note">#{claimsBean.fullReason(c)}</div>
+                                    <ui:fragment rendered="#{claimsBean.trail(c) != null}"><div class="trail">
+                                        <div class="trail-head">Pattern signals found by code</div>
+                                        <ui:fragment rendered="#{empty claimsBean.trail(c).signals()}"><div class="muted note">none</div></ui:fragment>
+                                        <ui:fragment rendered="#{not empty claimsBean.trail(c).signals()}"><ul><ui:repeat value="#{claimsBean.trail(c).signals()}" var="s"><li><span class="mono trail-code">#{s.code()}</span> #{s.text()}</li></ui:repeat></ul></ui:fragment>
+                                        <div class="trail-head">Checks the agent asked for</div>
+                                        <ui:fragment rendered="#{empty claimsBean.trail(c).findings()}"><div class="muted note">none, the first answer was enough</div></ui:fragment>
+                                        <ui:fragment rendered="#{not empty claimsBean.trail(c).findings()}"><ul><ui:repeat value="#{claimsBean.trail(c).findings()}" var="f"><li><span class="mono trail-code">#{f.name()}</span> #{f.label()}<div class="trail-found">#{f.found()}</div></li></ui:repeat></ul></ui:fragment>
+                                        <div class="muted note">#{claimsBean.trail(c).modelCalls()} model call(s). #{claimsBean.trail(c).note()}</div>
+                                    </div></ui:fragment></div>
+                                </details></h:panelGroup><h:panelGroup rendered="#{c.proposal != null}"><div class="note proposal">#{claimsBean.proposalText(c)}<br/>
                                     <h:commandButton value="Book it" action="#{claimsBean.book(c.id)}" styleClass="btn small primary" rendered="#{claimsBean.adjuster}" title="Book this appointment in the Duck Physical Therapy Clinic"/></div></h:panelGroup></h:panelGroup>
                                 <h:panelGroup rendered="#{c.fraudScore == null and c.status.open}"><span class="muted">checking…</span></h:panelGroup>
                                 <h:panelGroup rendered="#{c.fraudScore == null and not c.status.open}"><span class="muted">-</span></h:panelGroup>

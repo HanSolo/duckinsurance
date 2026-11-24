@@ -22,5 +22,7 @@ services:
       AGENT_SECRET: ${AGENT_SECRET:-duck-agent-demo}
       # Set to "off" to use only the rule-based fraud check
       DUCK_FRAUD_AGENT: "on"
+      # Set to "off" so that the fraud agent judges after one model call and never asks for further checks
+      DUCK_FRAUD_INVESTIGATE: "on"
       # Ask the user before a tool changes data: if-supported (default), always, off
       DUCK_CONFIRM_WRITES: if-supported

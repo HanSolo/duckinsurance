@@ -1,6 +1,7 @@
 package eu.hansolo.duckinsurance.web;
 
 import eu.hansolo.duckinsurance.agent.AgentCheck;
+import eu.hansolo.duckinsurance.agent.FraudTrail;
 import eu.hansolo.duckinsurance.agent.PhysioBooking;
 import eu.hansolo.duckinsurance.domain.Claim;
 import eu.hansolo.duckinsurance.domain.ClaimStatus;
@@ -44,6 +45,8 @@ public class ClaimsBean implements Serializable {
     private PhysioBooking     physioBooking;
     @Inject
     private CustomerService   customerService;
+    @Inject
+    private FraudTrail        fraudTrail;
     private List<Claim>       claims;
     private List<Policy>      activePolicies;
     private List<Vet>         vets;
@@ -123,6 +126,49 @@ public class ClaimsBean implements Serializable {
     public String reason(Claim claim) {
         String reason = claim.getFraudReason();
         return reason == null || AgentCheck.enabled() ? reason : reason.replace(" Press Check to compare the claim with the DuckClinic.", "");
+    }
+
+    // ---- collapsible check result: a short line, the full reason and the agent's trail on demand ----
+
+    private static final int SHORT_REASON = 90;
+
+    /** What the fraud agent found and checked for this claim (only while the Fraud switch is on), or null. */
+    public FraudTrail.Trail trail(Claim claim) {
+        if (!AgentCheck.enabled()) return null;
+        FraudTrail.Trail trail = fraudTrail.get(claim.getId());
+        return trail == null || trail.isEmpty() ? null : trail;
+    }
+
+    /** Long reasons and reasons with a trail are shown collapsed, so that the table keeps its row height. */
+    public boolean collapsible(Claim claim) {
+        String reason = reason(claim);
+        return reason != null && (reason.length() > SHORT_REASON || trail(claim) != null);
+    }
+
+    /** The reason without the [signals: ...] [checked: ...] suffix, which the details show as lists. */
+    public String fullReason(Claim claim) {
+        String reason = reason(claim);
+        if (reason == null) return null;
+        int cut = reason.indexOf(" [signals: ");
+        if (cut < 0) cut = reason.indexOf(" [checked: ");
+        return cut < 0 ? reason : reason.substring(0, cut);
+    }
+
+    /** The first sentence of the reason, cut to one line, for the collapsed view. */
+    public String shortReason(Claim claim) {
+        String reason = fullReason(claim);
+        if (reason == null) return null;
+        int end = reason.indexOf(". ");
+        String first = end > 0 ? reason.substring(0, end + 1) : reason;
+        return first.length() > SHORT_REASON ? first.substring(0, SHORT_REASON - 1).stripTrailing() + "…" : first;
+    }
+
+    /** "3 signals · 2 checks" for the collapsed view, or an empty text without a trail. */
+    public String trailSummary(Claim claim) {
+        FraudTrail.Trail trail = trail(claim);
+        if (trail == null) return "";
+        int s = trail.signals().size(), c = trail.findings().size();
+        return (s == 1 ? "1 signal" : s + " signals") + " · " + (c == 1 ? "1 check" : c + " checks");
     }
 
     public boolean canCheck(Claim claim) {

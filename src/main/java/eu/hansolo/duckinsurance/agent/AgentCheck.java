@@ -21,7 +21,7 @@ import java.util.logging.Logger;
 @ApplicationScoped
 public class AgentCheck {
     private static final Logger LOG             = Logger.getLogger(AgentCheck.class.getName());
-    private static final int    TIMEOUT_SECONDS = 120;
+    private static final int    TIMEOUT_SECONDS = 240; // two model calls when the agent investigates
 
     @Resource(lookup = "java:app/concurrent/VirtualExecutor")
     private ManagedExecutorService   executor;
@@ -35,6 +35,8 @@ public class AgentCheck {
     private PhysioClient             physio;
     @Inject
     private Event<ClaimCheckRequest> requests;
+    @Inject
+    private FraudTrail               trail;
 
 
     /** Switched with DUCK_FRAUD_AGENT at start and with the demo switch in the sidebar (see web/DemoFeatures). */
@@ -56,6 +58,7 @@ public class AgentCheck {
             claims.ruleCheck(claimId, "The clinics are not reachable, so only the rules were applied.");
             return false;
         }
+        trail.clear(claimId);
         claims.markChecking(claimId);
         LOG.info("Fraud agent: check of claim " + claimId + " requested");
         executor.submit(() -> {

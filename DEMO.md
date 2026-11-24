@@ -148,6 +148,16 @@ Needs the DuckClinic running with the demo data (`duck-clinic-patch/`). Open **C
 2. Press **Check** on the claim of **Sir Quacksalot** or **Bill**: low score, the reason names the clinic visit that matches.
 3. Stop the clinic and press **Check** again: the indicator turns red and the claim keeps its rule-based score, with a note that the agent failed.
 
+**Patterns and investigation (4 min).** Press **Check** on these claims (they are in the demo data; the DuckClinic needs the demo data of this version), then click the one-line result under the score to open the details:
+
+- **Waddles** (Marcus Webb, two arthritis claims 38 days apart): the code finds `REPEAT_DUCK`, but the DuckClinic has both visits. Low score. A repeat claim alone is not suspicious.
+- **Sir Quacksalot**, the second hook surgery claim (CLM-00010): the clinic has the surgery, but the code finds `DUPLICATE_INVOICE` and `SAME_WORDING` with the claim that was already paid. High score: same treatment claimed twice.
+- **Admiral Beak** and **Puddles** (Samuel Okafor, emergency surgery claims 2 days apart): `SAME_WORDING`, `PRIOR_REJECTION`, `REPEAT_OWNER`, `EARLY_CLAIM`, `NEAR_LIMIT`, and no clinic record. High score. The details show which checks the model asked for and what the code found.
+
+"The model does not search by itself. It names what it wants from a fixed list, our code runs it read only, and every step is shown. The patterns are counted by code, not guessed by the model."
+
+*Under the hood:* `agent/PatternSignals`, `agent/FraudInvestigation`, `agent/ClaimFraudAgent.judge`, `agent/FraudTrail`, `config/DataSeeder` (the planted cases).
+
 **Physical therapy clinic (optional):** needs the Duck Physical Therapy Clinic on port 8082 with `duck-physio-patch/`. The second indicator turns green.
 
 4. Press **Check** on the physiotherapy claim of **Sir Quacksalot** (treadmill sessions): the clinic has an appointment 28 days ago, low score.
