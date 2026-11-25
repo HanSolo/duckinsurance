@@ -37,7 +37,8 @@ public class FraudInvestigation {
         SIMILAR_CLAIMS("claims of any owner with a similar description"),
         OWNER_POLICIES("the owner's policies with their start dates"),
         OWNER_OTHER_DUCKS("the visits of the owner's other ducks at the DuckClinic"),
-        SAME_VET_CLAIMS("other claims that name the same vet");
+        SAME_VET_CLAIMS("other claims that name the same vet"),
+        WEATHER("the real weather in the owner's town around the incident date, from a public weather service; useful when the claim blames the weather");
 
         private final String label;
 
@@ -60,6 +61,8 @@ public class FraudInvestigation {
     private CustomerService customers;
     @Inject
     private ClinicClient    clinic;
+    @Inject
+    private WeatherCheck    weather;
 
 
     public static boolean enabled() {
@@ -68,7 +71,7 @@ public class FraudInvestigation {
 
     /** The checks as the model reads them in the prompt: "NAME (what it shows), ...". */
     public static String menu() {
-        return Arrays.stream(Check.values()).map(c -> c.name() + " (" + c.label() + ")").collect(Collectors.joining(", "));
+        return available().stream().map(c -> c.name() + " (" + c.label() + ")").collect(Collectors.joining(", "));
     }
 
     /**
@@ -84,7 +87,7 @@ public class FraudInvestigation {
             if (list == null) return result;
             for (JsonValue value : list) {
                 if (!(value instanceof jakarta.json.JsonString text)) continue;
-                for (Check check : Check.values()) {
+                for (Check check : available()) {
                     if (check.name().equalsIgnoreCase(text.getString().trim()) && !result.contains(check) && result.size() < MAX_CHECKS) result.add(check);
                 }
             }
@@ -92,6 +95,11 @@ public class FraudInvestigation {
             // an answer that cannot be read asks for nothing
         }
         return result;
+    }
+
+    /** The checks the model may ask for: all of them, without WEATHER when WEATHER_MCP_URL=off. */
+    public static List<Check> available() {
+        return Arrays.stream(Check.values()).filter(c -> c != Check.WEATHER || WeatherClient.enabled()).toList();
     }
 
     /** Runs one check for a claim and returns what it found, as text for the model and the log. */
@@ -102,6 +110,7 @@ public class FraudInvestigation {
             case OWNER_POLICIES    -> patterns.ownerPolicies(claim);
             case OWNER_OTHER_DUCKS -> otherDucks(claim);
             case SAME_VET_CLAIMS   -> patterns.sameVetClaims(claim);
+            case WEATHER           -> weather.run(claim);
         };
     }
 

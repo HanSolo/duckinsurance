@@ -17,7 +17,8 @@
             <h:panelGroup id="agentStatus" layout="block" styleClass="chat-status">
                 <span class="dot #{fraudAgentBean.state}"></span><span class="muted"><strong>Fraud agent</strong> (Jakarta Agentic AI), DuckClinic: #{fraudAgentBean.text}</span><br/>
                 <h:panelGroup rendered="#{not fraudAgentBean.off}"><span class="dot #{fraudAgentBean.physioState}"></span><span class="muted">Physical therapy clinic: #{fraudAgentBean.physioText}</span><br/></h:panelGroup>
-                <span class="muted">Claims are still checked by the rules if a clinic is not reachable.</span>
+                <h:panelGroup rendered="#{not fraudAgentBean.off}"><span class="dot #{fraudAgentBean.weatherState}"></span><span class="muted">Weather (public MCP server on the internet): #{fraudAgentBean.weatherText}</span><br/></h:panelGroup>
+                <span class="muted">If no clinic is reachable, claims get the rule-based check, except claims that blame the weather: the agent checks those against the weather. Without the weather server, claims are judged without the weather.</span>
                 <h:commandButton value="Check again" styleClass="btn ghost small">
                     <f:ajax listener="#{fraudAgentBean.check}" execute="@this" render="agentStatus"/>
                 </h:commandButton>
@@ -58,7 +59,7 @@
                                         <div class="trail-head">Pattern signals found by code</div>
                                         <ui:fragment rendered="#{empty claimsBean.trail(c).signals()}"><div class="muted note">none</div></ui:fragment>
                                         <ui:fragment rendered="#{not empty claimsBean.trail(c).signals()}"><ul><ui:repeat value="#{claimsBean.trail(c).signals()}" var="s"><li><span class="mono trail-code">#{s.code()}</span> #{s.text()}</li></ui:repeat></ul></ui:fragment>
-                                        <div class="trail-head">Checks the agent asked for</div>
+                                        <div class="trail-head">Checks the agent ran</div>
                                         <ui:fragment rendered="#{empty claimsBean.trail(c).findings()}"><div class="muted note">none, the first answer was enough</div></ui:fragment>
                                         <ui:fragment rendered="#{not empty claimsBean.trail(c).findings()}"><ul><ui:repeat value="#{claimsBean.trail(c).findings()}" var="f"><li><span class="mono trail-code">#{f.name()}</span> #{f.label()}<div class="trail-found">#{f.found()}</div></li></ui:repeat></ul></ui:fragment>
                                         <div class="muted note">#{claimsBean.trail(c).modelCalls()} model call(s). #{claimsBean.trail(c).note()}</div>

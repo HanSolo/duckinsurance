@@ -34,6 +34,8 @@ public class AgentCheck {
     @Inject
     private PhysioClient             physio;
     @Inject
+    private WeatherClient            weather;
+    @Inject
     private Event<ClaimCheckRequest> requests;
     @Inject
     private FraudTrail               trail;
@@ -55,8 +57,12 @@ public class AgentCheck {
         var type = policies.get(claim.getPolicyId()).getType();
         if (type != PolicyType.VET_CARE && type != PolicyType.PHYSIO) throw DomainException.conflict("The clinics can only confirm vet-care and physiotherapy claims");
         if (!clinic.check().state().equals("ok") && !physio.check().state().equals("ok")) {
-            claims.ruleCheck(claimId, "The clinics are not reachable, so only the rules were applied.");
-            return false;
+            // Without the clinics the agent still has something to check if the claim blames the weather and the public weather server answers
+            if (!ClaimFraudAgent.weatherCanHelp(claim.getDescription()) || !weather.check().state().equals("ok")) {
+                claims.ruleCheck(claimId, "The clinics are not reachable, so only the rules were applied.");
+                return false;
+            }
+            LOG.info("Fraud agent: no clinic is reachable, claim " + claimId + " is checked with the weather only");
         }
         trail.clear(claimId);
         claims.markChecking(claimId);

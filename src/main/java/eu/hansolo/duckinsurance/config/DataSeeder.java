@@ -81,6 +81,8 @@ public class DataSeeder {
         Policy waddlesVet = policies.issue(waddles.getId(), PolicyType.VET_CARE, new BigDecimal("3000"), today.minusDays(120));
         Policy admiralVet = policies.issue(admiralBeak.getId(), PolicyType.VET_CARE, new BigDecimal("2000"), today.minusDays(18));
         Policy puddlesVet = policies.issue(puddles.getId(), PolicyType.VET_CARE, new BigDecimal("2000"), today.minusDays(14));
+        // Case for the weather check (public weather MCP server): Lena lives in Vienna
+        Policy duckyVet = policies.issue(duckyMcDuckface.getId(), PolicyType.VET_CARE, new BigDecimal("3000"), today.minusDays(200));
 
         Claim hook = claimService.submit(sirQuacksalotVet.getId(), "Sir Quacksalot swallowed a fishing hook, emergency surgery and X-rays", new BigDecimal("1800"), today.minusDays(40), dewey.getId());
         Claim pipe = claimService.submit(admiralCoop.getId(), "Burst pipe flooded the coop and the pump house of the duck pond", new BigDecimal("6500"), today.minusDays(25), null);
@@ -99,6 +101,10 @@ public class DataSeeder {
         // Organised pattern: same wording, young policies, amounts near the limit, an earlier rejected claim of the owner, and no record in either clinic
         claimService.submit(admiralVet.getId(), "Emergency surgery after a fox attack, wing and crop repair", new BigDecimal("1900"), today.minusDays(7), null);
         claimService.submit(puddlesVet.getId(), "Emergency surgery after a fox attack, wing and crop repair with X-rays", new BigDecimal("1950"), today.minusDays(5), null);
+
+        // Blames the weather: the fraud agent asks a public weather MCP server what the weather in Vienna really was on that day. Hail needs a thunderstorm, which is rare,
+        // so on almost every demo day the weather contradicts the claim (see README, "Weather check"). The DuckClinic has no record of Ducky either.
+        claimService.submit(duckyVet.getId(), "Hailstorm at the pond: hail stones bruised the left wing and cracked the bill, X-ray and wound care", new BigDecimal("780"), today.minusDays(12), null);
 
         // Two historic decisions, written directly so that seeding does not depend on the caller's role
         decide(hook, ClaimStatus.APPROVED, "Covered, invoice verified");

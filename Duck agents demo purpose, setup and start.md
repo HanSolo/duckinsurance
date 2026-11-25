@@ -1,6 +1,6 @@
 # Duck agents demo: purpose, setup and start
 
-Nov 23, 2026, updated Nov 24, 2026 · @Han Solo
+Nov 23, 2026, updated Nov 25, 2026 · @Han Solo
 
 ## Purpose
 
@@ -10,7 +10,7 @@ Each step builds on the previous one:
 
 1. **MCP server on the duck-clinic.** The Jakarta MCP server library turns the clinic's existing services into MCP tools. Any MCP client can then read owners, ducks, vets and visits and book a visit, for example Claude CLI after the server is added to it. A separate voice demo does the same: a Swift app takes voice input and calls the Java application duck-voice-agent, whose MCP client reads from the clinic and books an appointment.
 2. **DuckInsurance with an assistant.** A second Jakarta EE application, with its own MCP server and an MCP client. Its chat window (Assistant) lets employees work with the application by chatting instead of using the web pages. Anything that changes data is confirmed by the user first.
-3. **A fraud agent.** For a claim, an agent asks the clinics what they have on record, compares that with the insurer's own data and gives the claim a score from 0 to 100 and a reason. Code first looks for patterns across all claims (the same wording, the same invoice twice, a very young policy, an amount near the limit, and more), and the model may ask for up to three extra read-only checks before it answers. The adjuster still decides to approve or decline.
+3. **A fraud agent.** For a claim, an agent asks the clinics what they have on record, compares that with the insurer's own data and gives the claim a score from 0 to 100 and a reason. Code first looks for patterns across all claims (the same wording, the same invoice twice, a very young policy, an amount near the limit, and more), and the model may ask for up to three extra read-only checks before it answers. If a claim blames the weather, the agent also asks a public weather MCP server on the internet what the weather really was that day, so here DuckInsurance is the MCP client of a server somebody else runs. The adjuster still decides to approve or decline.
 4. **Agent to agent.** The third application, the Duck Physical Therapy Clinic, is a Quarkus application with the Quarkus MCP server, not Jakarta EE. Three agents in three applications decide together whether a duck needs further therapy and, if so, which sessions the insurer pays and which are booked.
 
 The idea behind step 4: each institution keeps its own data, rules and limits, and only MCP calls cross between them. Code enforces the limits; the language model only chooses inside them.
@@ -21,9 +21,9 @@ For a live audience, an `admin` of DuckInsurance can switch steps 2 to 4 on and 
 
 Three applications make up the demo: two Jakarta EE applications on Payara 7 and one Quarkus application. Each has its own data, MCP server, MCP client and agent.
 
-![How the three applications call each other: only MCP calls cross between them, every agent calls the configured LLM](duck-agents-architecture.png)
+![How the three applications call each other: only MCP calls cross between them, every agent calls the configured LLM, and the fraud agent also asks a public weather MCP server](duck-agents-architecture.png)
 
-The clinic and the therapy clinic call each other during a referral, the therapy clinic asks the insurer to pay, and the insurer's fraud agent reads both clinics.
+The clinic and the therapy clinic call each other during a referral, the therapy clinic asks the insurer to pay, and the insurer's fraud agent reads both clinics. For claims that blame the weather, the fraud agent also calls the public Open-Meteo MCP server on the internet.
 
 | Application | What it does | Stack | Port | MCP endpoint | Agent |
 | --- | --- | --- | --- | --- | --- |
@@ -42,6 +42,7 @@ The shortest path needs Docker with Compose, a language model (a local Ollama, a
 | Docker with Compose 2.24 or newer | Running the three applications in containers | Docker Desktop, or Docker Engine with the Compose plugin on Linux. The compose files use `env_file` with `required: false`, which needs 2.24. The first start downloads the images, so it needs internet |
 | A language model | All agents and the Assistant | One of: Ollama 0.14 or newer (default model `qwen3.8:27b`, `ollama pull qwen3.8:27b`, needs plenty of memory); the Claude API with a key; an OpenAI-format service such as OpenAI, Groq, OpenRouter or Mistral. Free tiers have small rate limits, use a paid tier for demos |
 | Free ports 8080, 8081, 8082 | Clinic, insurer, therapy clinic | The insurer's Payara admin console also uses 4848 |
+| Internet access to `open-meteo.caseyjhand.com` (HTTPS) | Optional: the fraud agent's weather check | Without it the weather indicator on the Claims page turns red and claims are judged without the weather |
 | JDK 21 or newer and Maven | Building and running without Docker; building duck-voice-agent | The clinic and the therapy clinic compile for release 21 |
 | Payara 7.2026.8 or newer | The draft Jakarta Agentic AI API | The Docker images use 7.2026.10 |
 | macOS 26 or newer | Optional: the prebuilt DuckVoice.app of the voice demo | Uses on-device speech recognition and a microphone |
@@ -95,6 +96,7 @@ The databases are created with seed data, so there is nothing to import. These s
 | `THERAPY_MCP_URL` | Duck Clinic | `http://host.docker.internal:8082/mcp` |
 | `DUCK_ASSISTANT`, `DUCK_FRAUD_AGENT`, `DUCK_AGENTS_TAB` | DuckInsurance | `on`; start values of the **AI**, **Fraud** and **A2A** switches (`off` hides the Assistant, the fraud agent or the Agents page until an admin switches it on) |
 | `DUCK_FRAUD_INVESTIGATE` | DuckInsurance | `on` (`off`: the fraud agent keeps the pattern signals but answers after one model call, for small rate limits) |
+| `WEATHER_MCP_URL` | DuckInsurance | `https://open-meteo.caseyjhand.com/mcp`, the public weather MCP server for the fraud agent's weather check; can point at a self-hosted copy of the same open-source server. `off` switches the check off (no check, no signal, not offered to the model). In the launcher, add it to `llm.env`, which every application reads |
 | `DUCK_CONFIRM_WRITES` | DuckInsurance | `if-supported` (also `always`, `off`) |
 
 ## Starting the applications
@@ -118,7 +120,7 @@ Stop an application with `docker compose down` in its folder. The clinic and the
 
 **Without Docker.** The clinic starts with `mvn clean package payara-server:start`; `liberty:run` and `wildfly:run -Pwildfly` also work. DuckInsurance builds with `mvn package` and runs on Payara Micro 7 with `java -jar payara-micro.jar --deploy target/duckinsurance.war`. The therapy clinic starts with `mvn quarkus:dev` and listens on 8082. The two Jakarta EE applications then both listen on 8080 by default, so give each its own port and set the URL settings from the Setup table to match.
 
-**Check that it works.** In DuckInsurance, open **Assistant**: both dots at the top should be green (model reachable, MCP endpoint reachable). The first answer is slow because Ollama loads the model. The **Claims** page shows one indicator per clinic.
+**Check that it works.** In DuckInsurance, open **Assistant**: both dots at the top should be green (model reachable, MCP endpoint reachable). The first answer is slow because Ollama loads the model. The **Claims** page shows one indicator per clinic and a third one for the public weather MCP server: green when it answers, red when it cannot be reached, yellow when the weather check is switched off.
 
 ## Trying it out
 
@@ -144,11 +146,14 @@ Needs the **Fraud** switch on. Sign in as `adjuster` (or `admin`), open **Claims
 
 The result is one line under the score, for example "No clinic has a record near the incident. 6 signals · 3 checks". Click it to open the full reason, each signal and what each check found. The same steps appear on the **Agents** page under the claim number.
 
-The demo data has three prepared cases:
+If the claim description blames the weather (hail, thunderstorm, storm, heavy rain or flood, frost or snow, heat), there is a sixth check, `WEATHER`: the agent asks the public Open-Meteo MCP server on the internet (free, no key) what the weather was in the owner's town from the day before to the day after the incident. The code reads the numbers (hail needs a thunderstorm; a storm needs gusts of about 75 km/h; heavy rain about 20 mm a day; frost 0 °C or snow; heat 30 °C) and gives the model the days plus that reading. If the model does not ask for the weather itself, the insurer's rule adds the check, and the log says so. If the server cannot be reached, the weather counts as unknown and is not held against the claim.
+
+The demo data has four prepared cases:
 
 - **Waddles** (Marcus Webb): a second arthritis claim. The code flags the repeat, but the clinic has both visits, so the score is low.
 - **Sir Quacksalot**, "Fishing hook removal" (CLM-00010): the clinic has the surgery, but the same surgery was already claimed and paid. High score.
 - **Admiral Beak** and **Puddles** (Samuel Okafor): almost the same wording, policies two weeks old, amounts near the limit, an earlier rejected claim and no clinic record. High score.
+- **Ducky McDuckface** (Lena Fischer, Vienna): hail injuries at the pond 12 days ago (CLM-00013). Needs only DuckInsurance and internet: if no clinic is reachable, the agent still checks a claim that blames the weather, using the weather alone (every other claim then gets the rule-based check). Hail needs a thunderstorm, which is rare in Vienna and almost never happens outside summer, so on nearly every demo day the real weather contradicts the claim: high score. After a real thunderstorm in Vienna around that date, the agent will correctly find hail plausible. Look at the weather indicator before the audience arrives.
 
 You can also sign in as `customer`, file a claim against a vet-care policy, and check it as `adjuster`. If the agent proposes a therapy booking, an adjuster or admin presses **Book it**; the agent never books by itself.
 
@@ -211,6 +216,8 @@ Most problems come from the model server not being reachable or from a port that
 | No details open under a fraud score | The insurer was restarted since the check; the details live in memory | Press **Check** again |
 | First answer takes very long | Ollama is loading the model | Ask one question before the audience arrives |
 | Claims page shows a clinic as unreachable | The clinic is not running or the URL is wrong | Check ports 8080 and 8082 and the `*_MCP_URL` settings |
+| Weather indicator is red | No internet, a firewall blocks `open-meteo.caseyjhand.com`, or the public server is down | Claims are judged without the weather and nothing breaks. Skip the Ducky McDuckface case, or show it as the fallback. To hide the check, set `WEATHER_MCP_URL=off` |
+| Ducky McDuckface gets a low score | There really was a thunderstorm in Vienna around the claim date | The agent is right; the planted case depends on the real weather |
 | Fraud reason starts with `[rules]` | The model did not answer in the expected JSON, so a fixed rule decided | Run the check again or try another model |
 | A port is in use | Another application holds 8080, 8081 or 8082 | Change `DUCKINSURANCE_PORT`, or stop the other application |
 | Referral gone after a restart | Referrals, plans, pre-authorizations and agent logs live in memory | Start the referral again |
@@ -222,3 +229,4 @@ Most problems come from the model server not being reachable or from a port that
 - Ducks are matched across the applications by owner last name plus duck name. Two owners with the same last name and a duck of the same name would be confused.
 - The Jakarta Agentic AI API is a draft and may change. Payara 7.2026.10 has no OpenAI backend, so the applications supply their own model client instead of Payara's model settings.
 - The fraud agent's pattern signals are hints computed by simple rules (for example word overlap for "same wording"), not proof. The details under a score live in memory and are gone after a restart.
+- The weather check uses a free public MCP server run by a private person, with no uptime promise. The weather data comes from Open-Meteo.com (CC BY 4.0) and is free for **non-commercial use only**. A company sales demo may count as commercial; if that matters, Open-Meteo sells an API key and the open-source server can be self-hosted with it (point `WEATHER_MCP_URL` at it). The place is the owner's town, because claims have no location field.

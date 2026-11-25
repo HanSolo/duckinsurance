@@ -121,8 +121,17 @@ public class ClaimFraudAgent {
             physioUp = false;
             LOG.info("Fraud agent: the Duck Physical Therapy Clinic is not reachable");
         }
-        if (!vetUp && !physioUp) throw new ClinicUnavailableException("Neither clinic is reachable", null);
+        if (!vetUp && !physioUp) {
+            // Neither clinic answers: a claim that blames the weather can still be checked against the weather; any other claim gets the rule-based check
+            if (!weatherCanHelp(claim.getDescription())) throw new ClinicUnavailableException("Neither clinic is reachable", null);
+            log.say(claim.getClaimNumber(), null, "THOUGHT", "Neither clinic is reachable. The claim blames the weather, so the agent goes on and checks the weather instead.");
+        }
         return new ClinicFacts(claim.getId(), text, policy.getType().name(), claim.getDescription(), duck.getId(), vetUp, vetKnown, vetVisits, vetNearby, physioUp, physioDuckId, physioAppts, physioNearby, treatments, therapists);
+    }
+
+    /** Can the weather check say something about this claim? The description names a weather event, the weather check is on and the investigation round runs. */
+    static boolean weatherCanHelp(String description) {
+        return WeatherClient.enabled() && FraudInvestigation.enabled() && WeatherCheck.claimedEvent(description).isPresent();
     }
 
     /** Always continues the workflow: the verdict travels in the details of the result, a high score is not a reason to stop. */
@@ -130,8 +139,12 @@ public class ClaimFraudAgent {
     Result judge(ClinicFacts facts) {
         Claim                       claim   = claims.get(facts.claimId());
         String                      number  = claim.getClaimNumber();
-        List<PatternSignals.Signal> signals = patterns.forClaim(claim);
+        List<PatternSignals.Signal> signals = new ArrayList<>(patterns.forClaim(claim));
         boolean                     deeper  = FraudInvestigation.enabled();
+        // A claim that blames the weather can be checked against the real weather (public weather MCP server, see WeatherCheck)
+        var                         blamed  = WeatherCheck.claimedEvent(claim.getDescription());
+        boolean                     weather = deeper && blamed.isPresent() && FraudInvestigation.available().contains(FraudInvestigation.Check.WEATHER);
+        if (weather) signals.add(new PatternSignals.Signal("WEATHER_EVENT", "The description blames " + blamed.get().words() + ". The WEATHER check can compare that with the real weather in the owner's town on the incident date."));
         String prompt = """
                 You are a fraud analyst of a duck insurer. Compare the claim with the records of two clinics and judge whether the claim makes sense:
                 the DuckClinic (veterinary visits) and the Duck Physical Therapy Clinic (therapy appointments such as hydrotherapy, treadmill, wing mobilisation).
@@ -167,14 +180,20 @@ public class ClaimFraudAgent {
         log.say(number, null, "THOUGHT", "The clinics answered; the code found " + (signals.isEmpty() ? "no pattern signals" : signals.size() + " pattern signal(s): " + PatternSignals.codes(signals)) + ". Asking the language model.");
         Answer first = ask(prompt);
 
-        List<FraudInvestigation.Check> wanted = deeper ? FraudInvestigation.requested(first.text()) : List.of();
+        List<FraudInvestigation.Check> wanted = deeper ? new ArrayList<>(FraudInvestigation.requested(first.text())) : new ArrayList<>();
+        if (weather && !wanted.contains(FraudInvestigation.Check.WEATHER)) {
+            // The insurer's rule: a claim that blames the weather always gets the weather check, even if the model did not ask for it (small models often don't)
+            if (wanted.size() >= FraudInvestigation.MAX_CHECKS) wanted.remove(wanted.size() - 1);
+            wanted.add(FraudInvestigation.Check.WEATHER);
+            log.say(number, null, "THOUGHT", "The claim blames " + blamed.get().words() + " and the model did not ask for the weather, so the insurer's rules add the WEATHER check.");
+        }
         if (wanted.isEmpty()) return new Result(true, annotate(parse(first.text(), facts, first.via()), facts.claimId(), signals, List.of(), 1, null, number));
 
         // The model named checks from a fixed list. The code runs them (read only) and the model answers once more with the evidence.
         StringBuilder                evidence = new StringBuilder();
         List<FraudTrail.Finding>     findings = new ArrayList<>();
         for (FraudInvestigation.Check check : wanted) {
-            log.say(number, null, "ACTION", "The model asked to look at " + check.label() + " (" + check.name() + ").");
+            log.say(number, null, "ACTION", check == FraudInvestigation.Check.WEATHER ? "Asking the public weather MCP server about the weather in the owner's town around the incident date (WEATHER)." : "The model asked to look at " + check.label() + " (" + check.name() + ").");
             String found = investigation.run(check, claim);
             log.say(number, null, "ANSWER", check.name() + ": " + found.replace('\n', ' ').trim());
             findings.add(new FraudTrail.Finding(check.name(), check.label(), found));

@@ -24,5 +24,7 @@ services:
       DUCK_FRAUD_AGENT: "on"
       # Set to "off" so that the fraud agent judges after one model call and never asks for further checks
       DUCK_FRAUD_INVESTIGATE: "on"
+      # Public weather MCP server on the internet for the fraud agent's WEATHER check (free, no key). "off" switches the check off.
+      WEATHER_MCP_URL: https://open-meteo.caseyjhand.com/mcp
       # Ask the user before a tool changes data: if-supported (default), always, off
       DUCK_CONFIRM_WRITES: if-supported

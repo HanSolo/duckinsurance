@@ -1,6 +1,6 @@
 # Duck agents: how the three institutions talk to each other
 
-Nov 21, 2026, updated Nov 24, 2026 · @Han Solo
+Nov 21, 2026, updated Nov 25, 2026 · @Han Solo
 
 ## Overview
 
@@ -26,9 +26,9 @@ All three agents use the same pattern and the same language model, set once in `
 
 Read it top to bottom. Solid arrows are calls, dashed arrows are replies, and the two highlighted replies are the insurer and the clinic asking back inside the same call before it can be answered. Messages 1 to 13 are the referral, from the vet's question to the first claim. Messages 14 to 18 are the cancellation after the first session.
 
-![Architecture view: 3 institutions, 3 agents, 4 MCP calls](duck-agents-architecture.png)
+![Architecture view: 3 institutions, 3 agents, 4 MCP calls between them, 1 to a public weather server](duck-agents-architecture.png)
 
-The same system seen as architecture instead of conversation. Each institution is a closed box with its own agent, its own MCP server and client, and its own call to the configured LLM. The four teal arrows are the only places where data crosses an institution boundary, and the tool name on each arrow says what is asked.
+The same system seen as architecture instead of conversation. Each institution is a closed box with its own agent, its own MCP server and client, and its own call to the configured LLM. The four teal arrows between the boxes are the only places where data crosses an institution boundary, and the tool name on each arrow says what is asked. The fifth arrow leaves the demo: for claims that blame the weather, the insurer's fraud agent asks a public weather MCP server on the internet that none of the three institutions runs.
 
 ## The conversation step by step
 
@@ -50,15 +50,18 @@ When the insurer's model takes longer than the connection stays open, the Therap
 
 DuckInsurance has a fourth agent, the fraud agent. It is not part of the referral conversation: it judges claims, whether they come from the Therapy Agent or from an adjuster. Every new claim first gets an automatic rule-based score. The agent runs only when an adjuster presses Check on a claim, and only while the **Fraud** demo switch is on.
 
-![Fraud agent workflow: 4 steps, 2 clinics, pattern signals, up to 3 checks, 1 fallback](duck-fraud-agent.png)
+![Fraud agent workflow: 4 steps, 2 clinics, pattern signals, up to 3 checks, a public weather server, 1 fallback](duck-fraud-agent.png)
 
 - **Trigger and action.** The Check button fires a CDI event. The agent finds the duck by owner last name and duck name in both clinics and reads its visits and appointments over MCP. It keeps only records within 14 days of the incident. A clinic it cannot reach is unknown, not suspicious.
 - **Pattern signals.** Before the model is asked, the insurer's code compares the claim with all other claims and lists facts: almost the same wording as another claim, the same duck claimed again within 7 days with almost the same amount (the same invoice twice) or a different one (one treatment split up), an earlier rejected claim of the owner, other claims for the same duck or the owner's other ducks within 90 days, an incident within 30 days of the policy start, an amount of 90% of the coverage or more, and an amount of at least twice the usual for that policy type. Code counts, because a model is unreliable at comparing many records; the model only weighs the signals, and a matching clinic record outweighs a repeat claim unless the same invoice may have been claimed twice.
-- **Decision, with investigation.** The model gets the claim, the records and the signals and answers with JSON: a score from 0 (plausible) to 100 (very suspicious), a reason, optionally a treatment and a therapist, and optionally up to three checks it wants from a fixed list: the owner's other claims, similar claims of any owner, the owner's policies, the owner's other ducks at the clinic, other claims naming the same vet. The code runs those checks read only and asks the model once more with the evidence. Unknown names are ignored. Because this is plain text in and out rather than tool calling, it works the same with every model provider. The code clamps the score to 0 to 100, and if the answer cannot be read, a rule decides.
+- **Decision, with investigation.** The model gets the claim, the records and the signals and answers with JSON: a score from 0 (plausible) to 100 (very suspicious), a reason, optionally a treatment and a therapist, and optionally up to three checks it wants from a fixed list: the owner's other claims, similar claims of any owner, the owner's policies, the owner's other ducks at the clinic, other claims naming the same vet. The code runs those checks read only and asks the model once more with the evidence. Unknown names are ignored.
+- **Weather, from a public MCP server.** If the description blames the weather (hail, thunderstorm, storm, heavy rain or flood, frost or snow, heat), the code adds the signal `WEATHER_EVENT` and a sixth check, `WEATHER`, is on the list. If the model does not ask for it, the insurer's rule adds it, and the log says so, because small local models often don't ask. The check calls the free, keyless Open-Meteo MCP server at `https://open-meteo.caseyjhand.com/mcp` (tools `openmeteo_search_locations` and `openmeteo_get_historical`) for the owner's town, from the day before to the day after the incident. Here DuckInsurance is the MCP client of a server somebody else runs on the internet, with the same MCP client library it uses for the clinics. The code reads the numbers (hail needs a thunderstorm, weather code 95 to 99; a storm needs gusts of about 75 km/h; heavy rain about 20 mm a day; frost 0 °C or snow; heat 30 °C), and the model gets the three days plus that reading. Answers are cached in memory per town and date. Because this is plain text in and out rather than tool calling, it works the same with every model provider. The code clamps the score to 0 to 100, and if the answer cannot be read, a rule decides.
 - **Outcome.** The score and reason are stored on the claim, which stays under review. In the claim list the result is one line with the number of signals and checks; a click opens the full reason, each signal and what each check found. If neither clinic has the treatment but the duck is a patient of the therapy clinic, the agent adds a booking proposal that an adjuster can accept.
-- **Errors.** Without any reachable clinic the claim keeps the rule-based score and says so. If only the second model call fails, for example on a rate limit, the first answer counts and the details say why. Any other failure is noted on the claim and the earlier score stays.
+- **Errors.** Without any reachable clinic the claim keeps the rule-based score and says so, unless the claim blames the weather and the weather server answers; then the agent checks the weather only, and the prompt says that no clinic could be reached (which tells nothing about the claim). If the weather server cannot be reached, the weather counts as unknown and the model is told not to hold that against the claim. If only the second model call fails, for example on a rate limit, the first answer counts and the details say why. Any other failure is noted on the claim and the earlier score stays.
 
-The demo data contains three prepared cases: a repeat claim for Waddles that the clinic confirms (low score), Sir Quacksalot's hook surgery claimed a second time (high score), and two near-identical emergency claims for Samuel Okafor's ducks with young policies, an earlier rejection and no clinic record (high score).
+The **Claims** page shows whether the agent can reach its sources: one indicator per clinic and a third for the weather server (green when it answers, red when not, yellow when `WEATHER_MCP_URL=off` switches the check off).
+
+The demo data contains four prepared cases: a repeat claim for Waddles that the clinic confirms (low score), Sir Quacksalot's hook surgery claimed a second time (high score), two near-identical emergency claims for Samuel Okafor's ducks with young policies, an earlier rejection and no clinic record (high score), and hail injuries for Ducky McDuckface in Vienna 12 days ago. Hail needs a thunderstorm, which is rare in Vienna and almost never happens outside summer, so on nearly every day the real weather contradicts that claim (high score); after a real thunderstorm the agent will correctly find it plausible.
 
 ## How an agent decides
 
@@ -101,4 +104,5 @@ Known limits of the demo:
 - The insurer's model call can take longer than a connection stays open. The Therapy Agent then polls `get_preauthorization` for the stored answer.
 - State and logs are kept in memory and are lost on restart, and so are the details under a fraud score (the score and reason stay).
 - Ducks are matched by owner last name and duck name, and the clinics' MCP endpoints have no authentication yet.
+- The weather server is free, run by a private person and has no uptime promise; the weather data (Open-Meteo.com, CC BY 4.0) is free for non-commercial use only. A company sales demo may count as commercial; Open-Meteo sells an API key, and the open-source server can be self-hosted with it. The place is the owner's town, because claims have no location field.
 - Cancelling works only for a scheduled referral, not while the therapy agent is still planning. Not built yet: per-agent authentication between all three apps.

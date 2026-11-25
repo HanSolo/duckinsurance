@@ -158,6 +158,16 @@ Needs the DuckClinic running with the demo data (`duck-clinic-patch/`). Open **C
 
 *Under the hood:* `agent/PatternSignals`, `agent/FraudInvestigation`, `agent/ClaimFraudAgent.judge`, `agent/FraudTrail`, `config/DataSeeder` (the planted cases).
 
+**The weather does not lie (2 min, needs internet).** The third indicator, "Weather (public MCP server on the internet)", should be green. Press **Check** on the claim of **Ducky McDuckface** (Lena Fischer, "Hailstorm at the pond ...") and open the details: the agent asked a public weather MCP server on the internet what the weather was in Vienna on that day. No thunderstorm, so no hail: high score.
+
+"So far other applications asked *us* through MCP. Here our agent is the client of an MCP server that somebody else runs on the internet, and it took two tool calls and no API key."
+
+This works without the clinics: with both clinic indicators red, a claim that blames the weather is still checked by the agent, with the weather only. Every other claim gets the rule-based check, as before.
+
+If the indicator is red (no internet, or the server is down): skip this, or show it as the fallback story: press Check anyway, the details say the weather is unknown and the claim is judged without it. Nothing breaks.
+
+*Under the hood:* `agent/WeatherClient` (MCP client of `open-meteo.caseyjhand.com`), `agent/WeatherCheck` (code reads the numbers), `WEATHER` in `agent/FraudInvestigation`.
+
 **Physical therapy clinic (optional):** needs the Duck Physical Therapy Clinic on port 8082 with `duck-physio-patch/`. The second indicator turns green.
 
 4. Press **Check** on the physiotherapy claim of **Sir Quacksalot** (treadmill sessions): the clinic has an appointment 28 days ago, low score.
